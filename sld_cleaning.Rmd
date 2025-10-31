@@ -1,0 +1,23 @@
+---
+title: "SLD Cleaning"
+output: html_notebook
+---
+
+```{r}
+#load in the dataset
+sld_orig <- read.csv("smart_location_database_original.csv") #should be in same directory as csv
+str(sld_orig)
+```
+
+```{r}
+# levels(factor(sld_orig$CSA_Name))
+# levels(factor(sld_orig$CBSA_Name))
+sld_NY_state <- sld_orig[sld_orig$STATEFP == 36, ] # 36 is NY State FIPS code
+sld_NY_state$countyName <- NA
+sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 47, "Brooklyn", sld_NY_state$countyName)
+sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 81, "Queens", sld_NY_state$countyName)
+sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 61, "Manhattan", sld_NY_state$countyName)
+sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 5, "Bronx", sld_NY_state$countyName)
+sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 85, "Staten Island", sld_NY_state$countyName)
+na.omit(sld_NY_state) # omit any counties that are not the 5 boroughs
+```
