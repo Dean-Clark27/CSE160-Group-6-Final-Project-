@@ -17,7 +17,8 @@ sld_NY_state <- sld_orig[sld_orig$STATEFP == 36, ] # 36 is NY State FIPS code, f
 
 # write.csv(sld_NY_state, "sld_NY_state.csv") # write only NY state entries to csv
 
-#---below is the code for only filtering and naming counties in NY state (also it's not very efficient...)---
+#---NYC COUNTY NAMES-----------------------------------------------------------------------------------------
+# didn't need this code
 # sld_NY_state$countyName <- NA
 # sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 47, "Brooklyn", sld_NY_state$countyName)
 # sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 81, "Queens", sld_NY_state$countyName)
@@ -25,7 +26,6 @@ sld_NY_state <- sld_orig[sld_orig$STATEFP == 36, ] # 36 is NY State FIPS code, f
 # sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 5, "Bronx", sld_NY_state$countyName)
 # sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 85, "Staten Island", sld_NY_state$countyName)
 # na.omit(sld_NY_state) # omit any counties that are not the 5 boroughs
-#------------------------------------------------------------------------------------------------------------
 
 #---NAMING COLUMNS-------------------------------------------------------------------------------------------
 colnames(sld_NY_state)
@@ -103,7 +103,7 @@ sld_colnames <- c("Object ID",
                   "Gross Healthcare (8-tier) Employment Density",
                   "Gross Retail (8-tier) Employment Density",
                   "Gross Activity Density (employment+HUs)",
-                  "Flag - Density based on total CBG land acreage",
+                  "Flag - Density based on total CBG land acreage", #if 1, then density is out of entire CBG acreage, else then only out of unprotected land --> if we want to use any density metrics, would be smart to filter out the 1s (there are not many, <250 of 15K entries)
                   
                   "Jobs per Household", #---------------diversity, 13----------------
                   "5-tier Employment Entropy (out of observed employment types)",
@@ -142,13 +142,13 @@ sld_colnames <- c("Object ID",
                   "Jobs within 45 Minutes Transit Commute", 
                   "Working Age Population Within 45 Minutes Transit Commute",
                   "Proportional Accessibility to Regional Desinations by Auto - Employment Accessibility",
-                  "Regional Centrality Index, Auto - D5cr",
+                  "Regional Centrality Index, Auto - Employment",
                   "Proportional Accessibility to Regional Desinations by Auto - Working Age Population Accessibility",
-                  "Regional Centrality Index, Auto - D5ce",
+                  "Regional Centrality Index, Auto - Working Age Population",
                   "Proportional Accessibility to Regional Desinations by Transit - Employment Accessibility",
-                  "Regional Centrality Index, Transit - D5dr",
+                  "Regional Centrality Index, Transit - Employment",
                   "Proportional Accessibility to Regional Desinations by Transit - Working Age Population Accessibility",
-                  "Regional Centrality Index, Transit - D4de",
+                  "Regional Centrality Index, Transit - Working Age Population",
                   
                   "Walkability Quartile Ranked Order of D2a", #------walkability index, 5-----
                   "Walkability Quartile Ranked Order of D2b",
@@ -161,19 +161,64 @@ sld_colnames <- c("Object ID",
 
 length(sld_colnames) # check that vector length matches num cols
 colnames(sld_NY_state) <- sld_colnames # assign new col names
+
+
+#---------------REMOVING DEFINITELY UNWANTED COLS-----------------------------
+unwanted_cols <- c( "Object ID",
+                    "CBG 12-digit FIPS (2010)",
+                    "CSA Code", # many missing values
+                    "CSA Name",
+                    "Num. Retail Jobs (5-tier class.)", #sticking with 8-tier
+                    "Num. Office Jobs (5-tier class.)",
+                    "Num. Industrial Jobs (5-tier class.)",
+                    "Num. Service Jobs (5-tier class.)",
+                    "Num. Entertainment Jobs (5-tier class.)",
+                    "Gross Retail (5-tier) Employment Density",
+                    "Gross Office (5-tier) Employment Density",
+                    "Gross Industrial (5-tier) Employment Density",
+                    "Gross Service (5-tier) Employment Density",
+                    "Gross Entertainment (5-tier) Employment Density",
+                    "5-tier Employment Entropy (out of observed employment types)",
+                    "5-tier Employment Entropy (out of 5 tiers)",
+                    "Employment and Household Entropy (based on trips of 5 tiers)",
+                    "Employment and Household Entropy (based on trips from 4 of 5 tiers)",
+                    "Walkability Quartile Ranked Order of D2a", 
+                    "Walkability Quartile Ranked Order of D2b",
+                    "Walkability Quartile Ranked Order of D3b",
+                    "Walkability Quartile Ranked Order of D4a",
+                    "Shape Length",
+                    "Shape Area")
+
+sld_NY_tomerge <- sld_NY_state[, -which(colnames(sld_NY_state) %in% unwanted_cols)] #this sol from https://stackoverflow.com/questions/9845929/removing-a-list-of-columns-from-a-data-frame-using-subset
 ```
 
 Download the zipped FIPS_data folder and extract it (as a folder) to the directory that this notebook is in.
 ```{r}
 county_FIPS <- read.csv("./FIPS_data/County FIPS Codes.csv")
-county_FIPS_NY <- county_FIPS[county_FIPS$State.FIPS.code == 36, ] #only include the counties in NY state
+county_FIPS_NY <- county_FIPS[county_FIPS$State.FIPS.code == 36, ] # only include the counties in NY state
 
 # process the county fips so they match the format of the SLD (36001 --> 1)
 for (i in 1:length(county_FIPS_NY$County.Name)){
   county_FIPS_NY[i,"County.FIPS.code"] = county_FIPS_NY[i,"County.FIPS.code"] - 36000
 }
+
+county_FIPS_tomerge <- county_FIPS_NY[, c("County.Name", "County.FIPS.code")]
 ```
 
+Write result to file. Inclues renamed columns and county names. Feature selection has not been performed yet.
+```{r}
+# merge on county fips code to get more context for the sld data
+sld_NY_merged <- merge(county_FIPS_tomerge, sld_NY_tomerge, by.x = "County.FIPS.code", by.y = "County FIPS")
+
+write.csv(sld_NY_merged, "sld_NY_state.csv") # write only NY state entries to csv
+```
+
+Unused ZIP code data processing below.
 ```{r}
 zip_FIPS <- read.csv("./FIPS_data/ZIP codes to FIPS codes.csv")
+zip_FIPS_NY <- zip_FIPS[zip_FIPS$State == "New York", ]
+str(zip_FIPS_NY)
+
+zip_FIPS_NY$Primary.County<- as.factor(zip_FIPS_NY$Primary.County)
+levels(zip_FIPS_NY$Primary.County)
 ```
