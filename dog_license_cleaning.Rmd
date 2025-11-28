@@ -1,0 +1,99 @@
+---
+title: "dog_license_cleaning"
+author: "Dean Clark"
+date: "2025-10-31"
+output: pdf_document
+---
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(stringr)
+library(lubridate)
+
+# Load the dog licensing data
+dogs <- read.csv('dog_licenses.csv', stringsAsFactors = FALSE)
+
+# Clean and preprocess
+# Clean ZIP codes - ensure they're 5-digit strings
+dogs <- mutate(dogs, ZipCode = str_pad(as.character(ZipCode), 5, pad = "0"),
+
+LicenseIssuedDate = mdy(LicenseIssuedDate),
+LicenseExpiredDate = mdy(LicenseExpiredDate),
+# Calculate license duration
+LicenseDuration = as.numeric(LicenseExpiredDate - LicenseIssuedDate)
+)
+
+
+dog_features <- dogs %>%
+  group_by(ZipCode) %>%
+  summarise(
+    # Count features
+    total_dogs = n()
+  ) %>%
+  ungroup()
+
+View(dog_features)
+```
+
+```{r}
+zip_codes <- read.csv('zip_codes.csv', stringsAsFactors = FALSE)
+#View(zip_codes)
+
+#Remove all the Columns that are unnecessary for our tests
+zip_codes$White <- NULL
+zip_codes$Black_African_American <- NULL
+zip_codes$American_Indian_and_Alaska_Native <- NULL
+zip_codes$Asian <- NULL
+zip_codes$Native_Hawaiian_and_Other_Pacific_Islander <- NULL
+zip_codes$Some_Other_Race <- NULL
+zip_codes$Two_or_More_Races_Nonhispanic <- NULL
+zip_codes$Hispanic_Origin_of_any_race. <- NULL
+
+names(zip_codes)[2] <-"ZipCode"
+
+print(colnames(zip_codes))
+```
+
+
+```{r}
+'''
+# Load the SLD dataset
+sld <- read.csv('sld_NY_city.csv', stringsAsFactors = FALSE)
+names(sld)[2] <-"ZipCode"
+#View(sld)
+
+sld_with_dogs <- merge(sld, dogs, by ="ZipCode")
+print(sld_with_dogs)
+'''
+```
+
+
+
+```{r}
+# Merge the two dataframees to get the ratio of dogs per person and dogs per housing unit   
+zip_codes_with_dogs <- merge(zip_codes, dog_features, by="ZipCode")
+
+# How should we handle zero population? I removed them 
+zc_dogs_no_zeros <- zip_codes_with_dogs[zip_codes_with_dogs$Total_Population != 0, ]
+
+zc_dogs_no_zeros$Total_Population <-
+  as.numeric(gsub(",", "", zc_dogs_no_zeros$Total_Population))
+
+zc_dogs_no_zeros$Total_Housing_Units <-
+  as.numeric(gsub(",", "", zc_dogs_no_zeros$Total_Housing_Units))
+
+zc_dogs_no_zeros$total_dogs <- as.numeric(zc_dogs_no_zeros$total_dogs)
+zc_dogs_no_zeros$Total_Population <- as.numeric(zc_dogs_no_zeros$Total_Population)
+zc_dogs_no_zeros$Total_Housing_Units <- as.numeric(zc_dogs_no_zeros$Total_Housing_Units)
+
+zc_dogs_no_zeros$Dogs_Per_Person <- zc_dogs_no_zeros$total_dogs / zc_dogs_no_zeros$Total_Population
+zc_dogs_no_zeros$Dogs_Per_Housing_Unit <- zc_dogs_no_zeros$total_dogs / zc_dogs_no_zeros$Total_Housing_Units
+
+#View(zc_dogs_no_zeros)
+
+write.csv(zc_dogs_no_zeros, "zip_codes_dogs.csv", row.names = FALSE)
+```
+
