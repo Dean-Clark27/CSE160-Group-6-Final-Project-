@@ -1,0 +1,45 @@
+---
+title: "TRACT GEOID to Zips cleaning"
+author: "Dean Clark"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(stringr)
+
+sld_ny_city <- read.csv("sld_NY_city.csv", stringsAsFactors = FALSE) %>%
+  mutate(
+    STATEFP  = sprintf("%02d", as.numeric(STATEFP)),
+    COUNTYFP = sprintf("%03d", as.numeric(COUNTYFP)),
+    TRACTCE  = sprintf("%06d", as.numeric(TRACTCE)),
+    BLKGRPCE = sprintf("%01d", as.numeric(BLKGRPCE)),
+    # This value is the same as Tract in the next dataset
+    TRACT_GEOID = paste0(STATEFP, COUNTYFP, TRACTCE)
+  )
+
+#View(sld_ny_city)
+
+tract_zip <- read.csv("tract_zip.csv", stringsAsFactors = FALSE) %>%
+  # Treat the numbers as strings
+  mutate(
+    TRACT = str_pad(trimws(as.character(TRACT)), width = 11, side = "left", pad = "0"),
+    ZIP   = str_pad(trimws(as.character(ZIP)),   width = 5,  side = "left", pad = "0")
+  )
+
+#Remove the unnecessary columns
+tract_zip$RES_RATIO <- NULL
+tract_zip$BUS_RATIO <- NULL
+tract_zip$OTH_RATIO <- NULL
+tract_zip$TOT_RATIO <- NULL
+
+#View(tract_zip)
+
+# Merge on the TRACT_GEOID and write it to a new file
+sld_ny_city_with_zips <- sld_ny_city %>%
+    left_join(tract_zip, by = c("TRACT_GEOID" = "TRACT"))
+print(sld_ny_city_with_zips)
+
+write.csv(sld_ny_city_with_zips, "sld_ny_city_with_zips.csv", row.names = FALSE)
+```
+
