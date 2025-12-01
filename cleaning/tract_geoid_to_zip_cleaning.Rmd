@@ -43,3 +43,52 @@ print(sld_ny_city_with_zips)
 write.csv(sld_ny_city_with_zips, "sld_ny_city_with_zips.csv", row.names = FALSE)
 ```
 
+
+```{r}
+library(dplyr)
+library(stringr)
+
+sld_ny_state <- read.csv("sld_NY_state.csv", stringsAsFactors = FALSE) %>%
+  mutate(
+    State.FIPS = sprintf("%02d", as.numeric(State.FIPS)),
+    County.FIPS.code = sprintf("%03d", as.numeric(County.FIPS.code)),
+    Tract.FIPS  = sprintf("%06d", as.numeric(Tract.FIPS)),
+    
+    # This value is the same as Tract in the next dataset
+    TRACT_GEOID = paste0(State.FIPS, County.FIPS.code, Tract.FIPS)
+  )
+
+#View(sld_ny_state)
+
+tract_zip <- read.csv("tract_zip.csv", stringsAsFactors = FALSE) %>%
+  # Treat the numbers as strings
+  mutate(
+    TRACT = str_pad(trimws(as.character(TRACT)), width = 11, side = "left", pad = "0"),
+    ZIP   = str_pad(trimws(as.character(ZIP)),   width = 5,  side = "left", pad = "0")
+  )
+
+#Remove the unnecessary columns
+tract_zip$RES_RATIO <- NULL
+tract_zip$BUS_RATIO <- NULL
+tract_zip$OTH_RATIO <- NULL
+tract_zip$TOT_RATIO <- NULL
+
+#View(tract_zip)
+
+# Merge on the TRACT_GEOID and write it to a new file
+sld_ny_state_with_zips <- sld_ny_state %>%
+    left_join(tract_zip, by = c("TRACT_GEOID" = "TRACT"))
+
+# The file was too big so I'm removing this after using it to merge Zip codes
+sld_ny_state_with_zips$State.FIPS <- NULL
+sld_ny_state_with_zips$Tract.FIPS <- NULL
+sld_ny_state_with_zips$County.FIPS.code <- NULL
+sld_ny_state_with_zips$TRACT_GEOID <- NULL
+sld_ny_state_with_zips$CBG.12.digit.FIPS..2018. <- NULL
+sld_ny_state_with_zips$CBG.FIPS.code.in.which.CBG.resides <- NULL  
+
+print(sld_ny_state_with_zips)
+
+write.csv(sld_ny_state_with_zips, "sld_ny_state_with_zips.csv", row.names = FALSE)
+```
+
