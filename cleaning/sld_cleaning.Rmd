@@ -27,167 +27,203 @@ sld_NY_state <- sld_orig[sld_orig$STATEFP == 36, ] # 36 is NY State FIPS code, f
 # sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 85, "Staten Island", sld_NY_state$countyName)
 # na.omit(sld_NY_state) # omit any counties that are not the 5 boroughs
 
-#---NAMING COLUMNS-------------------------------------------------------------------------------------------
-colnames(sld_NY_state)
-sld_colnames <- c("Object ID",
-                  
-                  "CBG 12-digit FIPS (2010)", #------admin, 10--------------------
-                  "CBG 12-digit FIPS (2018)",
-                  "State FIPS",
-                  "County FIPS",
-                  "Tract FIPS",
-                  "CBG FIPS code in which CBG resides",
-                  "CSA Code", #combined statistical area
-                  "CSA Name", 
-                  "CBSA FIPS", #core-based statistical area
-                  "CBSA Name",
-                  
-                  "CBSA Population", #--------------csba measures, 3----------------
-                  "CBSA Total Employment",
-                  "CSBA Worker Population",
-                  
-                  "Total Area (acres)", #each of these refer to the CBG indicated by the fips #---------------------------------area, 4-----------------------------
-                  "Total Water Area (acres)",
-                  "Total Land Area (acres)",
-                  "Total Unprotected Land Area (acres)",
-                  
-                  "Total Population", #-------------demographics, 15-----------------
-                  "Num. Housing Units",
-                  "Num. Occupied Housing Units",
-                  "Percent Working Age Population",
-                  "Num. Zero-Car Households",
-                  "Percent Zero-Car Households",
-                  "Num. One-Car Households",
-                  "Percent One-Car Households",
-                  "Num. Multi-Car Households",
-                  "Percent Multi-Car Households",
-                  "Num. Workers",
-                  "Num. Low Wage Workers (Home Loc.)", #<$1250 per month
-                  "Num. Med. Wage Workers (Home Loc.)", #>$1250 and <$3333 per month
-                  "Num. High Wage Workers (Home Loc.)", #>$3333 per month
-                  "Percent Low Wage Workers (Home Loc.)",
-                  
-                  "Total Employment", #---------------employment, 18-----------------
-                  "Num. Retail Jobs (5-tier class.)",
-                  "Num. Office Jobs (5-tier class.)",
-                  "Num. Industrial Jobs (5-tier class.)",
-                  "Num. Service Jobs (5-tier class.)",
-                  "Num. Entertainment Jobs (5-tier class.)",
-                  "Num. Retail Jobs (8-tier class.)",
-                  "Num. Office Jobs (8-tier class.)",
-                  "Num. Industrial Jobs (8-tier class.)",
-                  "Num. Service Jobs (8-tier class.)",
-                  "Num. Entertainment Jobs (8-tier class.)",
-                  "Num. Education Jobs (8-tier class.)",
-                  "Num. Healthcare Jobs (8-tier class.)",
-                  "Num. Public Admin. Jobs (8-tier class.)",
-                  "Num. Low Wage Workers (Work Loc.)", #<$1250 per month
-                  "Num. Med. Wage Workers (Work Loc.)", #>$1250 and <$3333 per month
-                  "Num. High Wage Workers (Work Loc.)", #>$3333 per month
-                  "Percent Low Wage Workers (Work Loc.)", 
-                  
-                  "Gross Residential Density (HU/acre)", #housing units (HU) #-----------density, 18-----------
-                  "Gross Population Density (people/acre)",
-                  "Gross Employment Density(jobs/acre)",
-                  "Gross Retail (5-tier) Employment Density",
-                  "Gross Office (5-tier) Employment Density",
-                  "Gross Industrial (5-tier) Employment Density",
-                  "Gross Service (5-tier) Employment Density",
-                  "Gross Entertainment (5-tier) Employment Density",
-                  "Gross Retail (8-tier) Employment Density",
-                  "Gross Office (8-tier) Employment Density",
-                  "Gross Industrial (8-tier) Employment Density",
-                  "Gross Service (8-tier) Employment Density",
-                  "Gross Entertainment (8-tier) Employment Density",
-                  "Gross Education (8-tier) Employment Density",
-                  "Gross Healthcare (8-tier) Employment Density",
-                  "Gross Retail (8-tier) Employment Density",
-                  "Gross Activity Density (employment+HUs)",
-                  "Flag - Density based on total CBG land acreage", #if 1, then density is out of entire CBG acreage, else then only out of unprotected land --> if we want to use any density metrics, would be smart to filter out the 1s (there are not many, <250 of 15K entries)
-                  
-                  "Jobs per Household", #---------------diversity, 13----------------
-                  "5-tier Employment Entropy (out of observed employment types)",
-                  "5-tier Employment Entropy (out of 5 tiers)",
-                  "8-tier Employment Entropy (out of observed employment types)",
-                  "8-tier Employment Entropy (out of 8 tiers)",
-                  "Employment and Household Entropy",
-                  "Employment and Household Entropy (based on trips of 5 tiers)",
-                  "Employment and Household Entropy (based on trips from 4 of 5 tiers)",
-                  "Trip Attractions and Trip Attractions Equilibrium Index", # closer to 1 = more balanced trip making
-                  "Job/Pop. Regional Diversity",
-                  "Household Workers per Job, regional",
-                  "Household Workers per Job, CBG",
-                  "Household Workers per Job Equilibrium Index", #closer to 1 = more balanced resident workers & jobs in CBG
-                  
-                  "Total Road Network Density", #-------------design, 10-------------
-                  "Network Density, Facility Miles of Auto-Oriented Links per Sq. Mile",
-                  "Network Density, Facility Miles of Multi-modal Links per Sq. Mile",
-                  "Network Density, Facility Miles of Pedestrian-Oriented Links per Sq. Mile",
-                  "Street Intersection Density", # weighted, no auto-oriented intersections
-                  "Intersection Density, Auto-Oriented Intersections per Sq. Mile",
-                  "Intersection Density, Multi-modal Intersections (Three Legs) per Sq. Mile",
-                  "Intersection Density, Mutli-modal Intersections (Four or More Legs) per Sq. Mile",
-                  "Intersection Density, Pedestrian-Oriented Intersections (Three Legs) per Sq. Mile",
-                  "Intersection Density, Pedestrian-Oriented Intersections (Four or More Legs) per Sq. Mile",
-                  
-                  "Distance from Pop. Weighted Centroid to Nearest Transit Stop (meters)", #---------transit access, 6-------------
-                  "Proportion of CBG Employment Within 1/4 Mile of Fixed-Guideway Transit Stop",
-                  "Proportion of CBG Employment Within 1/2 Mile of Fixed-Guideway Transit Stop",
-                  "Aggregate Frequency of Transit Service Withing 1/4 Mile of CBG Boundary During Peak Evening Period (per hour)",
-                  "Aggregate Frequency of Transit Service per Sq. Mile",
-                  "Aggregate Frequency of Transit Service per Capita",
-                  
-                  "Jobs Within 45 Minutes Auto Travel Time", #----destination accessibility, 12----
-                  "Working Age Population Within 45 Minutes Auto Travel Time",
-                  "Jobs within 45 Minutes Transit Commute", 
-                  "Working Age Population Within 45 Minutes Transit Commute",
-                  "Proportional Accessibility to Regional Desinations by Auto - Employment Accessibility",
-                  "Regional Centrality Index, Auto - Employment",
-                  "Proportional Accessibility to Regional Desinations by Auto - Working Age Population Accessibility",
-                  "Regional Centrality Index, Auto - Working Age Population",
-                  "Proportional Accessibility to Regional Desinations by Transit - Employment Accessibility",
-                  "Regional Centrality Index, Transit - Employment",
-                  "Proportional Accessibility to Regional Desinations by Transit - Working Age Population Accessibility",
-                  "Regional Centrality Index, Transit - Working Age Population",
-                  
-                  "Walkability Quartile Ranked Order of D2a", #------walkability index, 5-----
-                  "Walkability Quartile Ranked Order of D2b",
-                  "Walkability Quartile Ranked Order of D3b",
-                  "Walkability Quartile Ranked Order of D4a",
-                  "Walkability Index",
-                  
-                  "Shape Length", #------------shape-----------
-                  "Shape Area")
+#---NAMING COLUMNS (this was less helpful)-------------------------------------------------------------------
+# colnames(sld_NY_state)
+# sld_colnames <- c("Object ID",
+#                   
+#                   "CBG 12-digit FIPS (2010)", #------admin, 10--------------------
+#                   "CBG 12-digit FIPS (2018)",
+#                   "State FIPS",
+#                   "County FIPS",
+#                   "Tract FIPS",
+#                   "CBG FIPS code in which CBG resides",
+#                   "CSA Code", #combined statistical area
+#                   "CSA Name", 
+#                   "CBSA FIPS", #core-based statistical area
+#                   "CBSA Name",
+#                   
+#                   "CBSA Population", #--------------csba measures, 3----------------
+#                   "CBSA Total Employment",
+#                   "CSBA Worker Population",
+#                   
+#                   "Total Area (acres)", #each of these refer to the CBG indicated by the fips #---------------------------------area, 4-----------------------------
+#                   "Total Water Area (acres)",
+#                   "Total Land Area (acres)",
+#                   "Total Unprotected Land Area (acres)",
+#                   
+#                   "Total Population", #-------------demographics, 15-----------------
+#                   "Num. Housing Units",
+#                   "Num. Occupied Housing Units",
+#                   "Percent Working Age Population",
+#                   "Num. Zero-Car Households",
+#                   "Percent Zero-Car Households",
+#                   "Num. One-Car Households",
+#                   "Percent One-Car Households",
+#                   "Num. Multi-Car Households",
+#                   "Percent Multi-Car Households",
+#                   "Num. Workers",
+#                   "Num. Low Wage Workers (Home Loc.)", #<$1250 per month
+#                   "Num. Med. Wage Workers (Home Loc.)", #>$1250 and <$3333 per month
+#                   "Num. High Wage Workers (Home Loc.)", #>$3333 per month
+#                   "Percent Low Wage Workers (Home Loc.)",
+#                   
+#                   "Total Employment", #---------------employment, 18-----------------
+#                   "Num. Retail Jobs (5-tier class.)",
+#                   "Num. Office Jobs (5-tier class.)",
+#                   "Num. Industrial Jobs (5-tier class.)",
+#                   "Num. Service Jobs (5-tier class.)",
+#                   "Num. Entertainment Jobs (5-tier class.)",
+#                   "Num. Retail Jobs (8-tier class.)",
+#                   "Num. Office Jobs (8-tier class.)",
+#                   "Num. Industrial Jobs (8-tier class.)",
+#                   "Num. Service Jobs (8-tier class.)",
+#                   "Num. Entertainment Jobs (8-tier class.)",
+#                   "Num. Education Jobs (8-tier class.)",
+#                   "Num. Healthcare Jobs (8-tier class.)",
+#                   "Num. Public Admin. Jobs (8-tier class.)",
+#                   "Num. Low Wage Workers (Work Loc.)", #<$1250 per month
+#                   "Num. Med. Wage Workers (Work Loc.)", #>$1250 and <$3333 per month
+#                   "Num. High Wage Workers (Work Loc.)", #>$3333 per month
+#                   "Percent Low Wage Workers (Work Loc.)", 
+#                   
+#                   "Gross Residential Density (HU/acre)", #housing units (HU) #-----------density, 18-----------
+#                   "Gross Population Density (people/acre)",
+#                   "Gross Employment Density(jobs/acre)",
+#                   "Gross Retail (5-tier) Employment Density",
+#                   "Gross Office (5-tier) Employment Density",
+#                   "Gross Industrial (5-tier) Employment Density",
+#                   "Gross Service (5-tier) Employment Density",
+#                   "Gross Entertainment (5-tier) Employment Density",
+#                   "Gross Retail (8-tier) Employment Density",
+#                   "Gross Office (8-tier) Employment Density",
+#                   "Gross Industrial (8-tier) Employment Density",
+#                   "Gross Service (8-tier) Employment Density",
+#                   "Gross Entertainment (8-tier) Employment Density",
+#                   "Gross Education (8-tier) Employment Density",
+#                   "Gross Healthcare (8-tier) Employment Density",
+#                   "Gross Retail (8-tier) Employment Density",
+#                   "Gross Activity Density (employment+HUs)",
+#                   "Flag - Density based on total CBG land acreage", #if 1, then density is out of entire CBG acreage, else then only out of unprotected land --> if we want to use any density metrics, would be smart to filter out the 1s (there are not many, <250 of 15K entries)
+#                   
+#                   "Jobs per Household", #---------------diversity, 13----------------
+#                   "5-tier Employment Entropy (out of observed employment types)",
+#                   "5-tier Employment Entropy (out of 5 tiers)",
+#                   "8-tier Employment Entropy (out of observed employment types)",
+#                   "8-tier Employment Entropy (out of 8 tiers)",
+#                   "Employment and Household Entropy",
+#                   "Employment and Household Entropy (based on trips of 5 tiers)",
+#                   "Employment and Household Entropy (based on trips from 4 of 5 tiers)",
+#                   "Trip Attractions and Trip Attractions Equilibrium Index", # closer to 1 = more balanced trip making
+#                   "Job/Pop. Regional Diversity",
+#                   "Household Workers per Job, regional",
+#                   "Household Workers per Job, CBG",
+#                   "Household Workers per Job Equilibrium Index", #closer to 1 = more balanced resident workers & jobs in CBG
+#                   
+#                   "Total Road Network Density", #-------------design, 10-------------
+#                   "Network Density, Facility Miles of Auto-Oriented Links per Sq. Mile",
+#                   "Network Density, Facility Miles of Multi-modal Links per Sq. Mile",
+#                   "Network Density, Facility Miles of Pedestrian-Oriented Links per Sq. Mile",
+#                   "Street Intersection Density", # weighted, no auto-oriented intersections
+#                   "Intersection Density, Auto-Oriented Intersections per Sq. Mile",
+#                   "Intersection Density, Multi-modal Intersections (Three Legs) per Sq. Mile",
+#                   "Intersection Density, Mutli-modal Intersections (Four or More Legs) per Sq. Mile",
+#                   "Intersection Density, Pedestrian-Oriented Intersections (Three Legs) per Sq. Mile",
+#                   "Intersection Density, Pedestrian-Oriented Intersections (Four or More Legs) per Sq. Mile",
+#                   
+#                   "Distance from Pop. Weighted Centroid to Nearest Transit Stop (meters)", #---------transit access, 6-------------
+#                   "Proportion of CBG Employment Within 1/4 Mile of Fixed-Guideway Transit Stop",
+#                   "Proportion of CBG Employment Within 1/2 Mile of Fixed-Guideway Transit Stop",
+#                   "Aggregate Frequency of Transit Service Withing 1/4 Mile of CBG Boundary During Peak Evening Period (per hour)",
+#                   "Aggregate Frequency of Transit Service per Sq. Mile",
+#                   "Aggregate Frequency of Transit Service per Capita",
+#                   
+#                   "Jobs Within 45 Minutes Auto Travel Time", #----destination accessibility, 12----
+#                   "Working Age Population Within 45 Minutes Auto Travel Time",
+#                   "Jobs within 45 Minutes Transit Commute", 
+#                   "Working Age Population Within 45 Minutes Transit Commute",
+#                   "Proportional Accessibility to Regional Desinations by Auto - Employment Accessibility",
+#                   "Regional Centrality Index, Auto - Employment",
+#                   "Proportional Accessibility to Regional Desinations by Auto - Working Age Population Accessibility",
+#                   "Regional Centrality Index, Auto - Working Age Population",
+#                   "Proportional Accessibility to Regional Desinations by Transit - Employment Accessibility",
+#                   "Regional Centrality Index, Transit - Employment",
+#                   "Proportional Accessibility to Regional Desinations by Transit - Working Age Population Accessibility",
+#                   "Regional Centrality Index, Transit - Working Age Population",
+#                   
+#                   "Walkability Quartile Ranked Order of D2a", #------walkability index, 5-----
+#                   "Walkability Quartile Ranked Order of D2b",
+#                   "Walkability Quartile Ranked Order of D3b",
+#                   "Walkability Quartile Ranked Order of D4a",
+#                   "Walkability Index",
+#                   
+#                   "Shape Length", #------------shape-----------
+#                   "Shape Area")
 
-length(sld_colnames) # check that vector length matches num cols
-colnames(sld_NY_state) <- sld_colnames # assign new col names
+# length(sld_colnames) # check that vector length matches num cols
+# colnames(sld_NY_state) <- sld_colnames # assign new col names # this was unhelpful
 
 
 #---------------REMOVING DEFINITELY UNWANTED COLS-----------------------------
-unwanted_cols <- c( "Object ID",
-                    "CBG 12-digit FIPS (2010)",
-                    "CSA Code", # many missing values
-                    "CSA Name",
-                    "Num. Retail Jobs (5-tier class.)", #sticking with 8-tier
-                    "Num. Office Jobs (5-tier class.)",
-                    "Num. Industrial Jobs (5-tier class.)",
-                    "Num. Service Jobs (5-tier class.)",
-                    "Num. Entertainment Jobs (5-tier class.)",
-                    "Gross Retail (5-tier) Employment Density",
-                    "Gross Office (5-tier) Employment Density",
-                    "Gross Industrial (5-tier) Employment Density",
-                    "Gross Service (5-tier) Employment Density",
-                    "Gross Entertainment (5-tier) Employment Density",
-                    "5-tier Employment Entropy (out of observed employment types)",
-                    "5-tier Employment Entropy (out of 5 tiers)",
-                    "Employment and Household Entropy (based on trips of 5 tiers)",
-                    "Employment and Household Entropy (based on trips from 4 of 5 tiers)",
-                    "Walkability Quartile Ranked Order of D2a", 
-                    "Walkability Quartile Ranked Order of D2b",
-                    "Walkability Quartile Ranked Order of D3b",
-                    "Walkability Quartile Ranked Order of D4a",
-                    "Shape Length",
-                    "Shape Area")
+# unwanted_cols_renamed <- c( "Object ID",
+#                     "CBG 12-digit FIPS (2010)",
+#                     "CSA Code", # many missing values
+#                     "CSA Name",
+#                     "Num. Retail Jobs (5-tier class.)", #sticking with 8-tier
+#                     "Num. Office Jobs (5-tier class.)",
+#                     "Num. Industrial Jobs (5-tier class.)",
+#                     "Num. Service Jobs (5-tier class.)",
+#                     "Num. Entertainment Jobs (5-tier class.)",
+#                     "Gross Retail (5-tier) Employment Density",
+#                     "Gross Office (5-tier) Employment Density",
+#                     "Gross Industrial (5-tier) Employment Density",
+#                     "Gross Service (5-tier) Employment Density",
+#                     "Gross Entertainment (5-tier) Employment Density",
+#                     "5-tier Employment Entropy (out of observed employment types)",
+#                     "5-tier Employment Entropy (out of 5 tiers)",
+#                     "Employment and Household Entropy (based on trips of 5 tiers)",
+#                     "Employment and Household Entropy (based on trips from 4 of 5 tiers)",
+#                     "Walkability Quartile Ranked Order of D2a", 
+#                     "Walkability Quartile Ranked Order of D2b",
+#                     "Walkability Quartile Ranked Order of D3b",
+#                     "Walkability Quartile Ranked Order of D4a",
+#                     "Shape Length",
+#                     "Shape Area")
+
+unwanted_cols <- c("OBJECTID",
+                   "GEOID10",
+                   "CSA",
+                   "CSA_Name",
+                   "CBSA",
+                   "CBSA_Name",
+                   "CBSA_POP",
+                   "CBSA_EMP",
+                   "CBSA_WRK",
+                   "E5_Ret",
+                   "E5_Off",
+                   "E5_Ind",
+                   "E5_Svc",
+                   "E5_Ent",
+                   "D4b025",
+                   "D4b050",
+                   "D1c5_Ret",
+                   "D1c5_Off",
+                   "D1c5_Ind",
+                   "D1c5_Svc",
+                   "D1c5_Ent",
+                   "D2b_E5Mix",
+                   "D2b_E5MixA",
+                   "D2c_TrpMx1",
+                   "D2c_TrpMx2",
+                   "D2A_Ranked",
+                   "D2B_Ranked",
+                   "D3B_Ranked",
+                   "D4A_Ranked",
+                   "Shape_Length",
+                   "Shape_Area")
+
+#------REMOVE VALUES THAT DO NOT MATCH DENSITY STANDARD---------
+sld_NY_state <- sld_NY_state[sld_NY_state$D1_FLAG == 0,] # still 15226 observations
+unwanted_cols <- c(unwanted_cols, "D1_FLAG")
 
 sld_NY_tomerge <- sld_NY_state[, -which(colnames(sld_NY_state) %in% unwanted_cols)] #this sol from https://stackoverflow.com/questions/9845929/removing-a-list-of-columns-from-a-data-frame-using-subset
 ```
@@ -205,20 +241,15 @@ for (i in 1:length(county_FIPS_NY$County.Name)){
 county_FIPS_tomerge <- county_FIPS_NY[, c("County.Name", "County.FIPS.code")]
 ```
 
-Write result to file. Inclues renamed columns and county names. Feature selection has not been performed yet.
+Write result to file. Includes renamed columns and county names. Feature selection has not been performed yet.
 ```{r}
+library(dplyr)
 # merge on county fips code to get more context for the sld data
-sld_NY_merged <- merge(county_FIPS_tomerge, sld_NY_tomerge, by.x = "County.FIPS.code", by.y = "County FIPS")
+sld_NY_merged <- merge(county_FIPS_tomerge, sld_NY_tomerge, by.x = "County.FIPS.code", by.y = "COUNTYFP")
+str(sld_NY_merged)
+sld_NY_merged <- sld_NY_merged %>%
+      rename(COUNTYFP = County.FIPS.code,
+             COUNTY_Name = County.Name)
 
 write.csv(sld_NY_merged, "sld_NY_state.csv") # write only NY state entries to csv
-```
-
-Unused ZIP code data processing below.
-```{r}
-zip_FIPS <- read.csv("./FIPS_data/ZIP codes to FIPS codes.csv")
-zip_FIPS_NY <- zip_FIPS[zip_FIPS$State == "New York", ]
-str(zip_FIPS_NY)
-
-zip_FIPS_NY$Primary.County<- as.factor(zip_FIPS_NY$Primary.County)
-levels(zip_FIPS_NY$Primary.County)
 ```
