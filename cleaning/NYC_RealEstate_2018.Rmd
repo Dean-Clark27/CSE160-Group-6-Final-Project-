@@ -1,0 +1,46 @@
+---
+author: Ester Frank
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+setwd("~/Downloads/CSE160_Real_Estate/nyu_2018/")
+
+library(sf)
+
+Map_2018 <- st_read("real_property_sales_nyc_2018.shp")
+myMap_2018 <- st_zm(Map_2018)
+
+```
+
+
+```{r}
+# unique_vals <- unique(myMap_2018$bldg_ctgy) #examine original building types here
+# print(unique_vals)
+#View(myMap_2018)
+
+myMap_2018$bldg_num_ctgy <- as.numeric(substring(myMap_2018$bldg_ctgy,1,2)) #to number off building types
+
+myCleanMap_2018 <- myMap_2018[, c("year", "borough", "tot_sqft", "price", "land_sqft", "yr_built", "bldg_ctgy", "bldg_num_ctgy", "sale_date")]
+myCleanMap_2018 <- myCleanMap_2018[myCleanMap_2018$price > 10,] #exclude everything that is not usable ($0-10)
+
+#only want to include homes that are residential/ can be lived in 
+myCleanMap_2018 <- myCleanMap_2018[myCleanMap_2018$bldg_num_ctgy < 4, ]
+myCleanMap_2018 <- myCleanMap_2018[!is.na(myCleanMap_2018$bldg_num_ctgy), ]
+
+View(myCleanMap_2018)
+
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
