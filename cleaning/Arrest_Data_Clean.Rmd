@@ -1,0 +1,129 @@
+---
+title: "Arrest_Data_Clean"
+author: "Luca Cevaer-Corey"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message = FALSE,warning = FALSE)
+
+# Only package we use explicitly
+library(ggplot2)
+```
+
+Load the Data
+```{r}
+# Set your working directory
+setwd("~/Desktop/CSE160_Real_Estate/")
+
+arrests_raw <- read.csv("NYPD_Arrest_Data_(Year_to_Date)_20251203.csv",
+                        stringsAsFactors = FALSE)
+
+# Structure check
+str(arrests_raw)
+
+```
+
+Basic Cleaning & Standardization of Crime Dataset
+```{r}
+# Start from the raw data
+arrests_clean <- arrests_raw
+
+# Convert "(null)" strings to NA in all character columns
+char_cols <- sapply(arrests_clean, is.character)
+
+for (col_name in names(arrests_clean)[char_cols]) {
+arrests_clean[[col_name]][arrests_clean[[col_name]] == "(null)"] <- NA
+}
+
+# Convert ARREST_DATE to Date and extract year and month
+arrests_clean$ARREST_DATE <- as.Date(arrests_clean$ARREST_DATE, format = "%m/%d/%Y")
+
+arrests_clean$ARREST_YEAR  <- as.integer(format(arrests_clean$ARREST_DATE, "%Y"))
+arrests_clean$ARREST_MONTH <- factor(format(arrests_clean$ARREST_DATE, "%b"),
+levels = month.abb)
+
+# Keep only valid borough codes
+valid_boros <- c("M", "B", "K", "Q", "S")
+arrests_clean <- arrests_clean[arrests_clean$ARREST_BORO %in% valid_boros, ]
+
+# Map borough abbreviations to full names
+borough_full <- arrests_clean$ARREST_BORO
+borough_full[borough_full == "M"] <- "Manhattan"
+borough_full[borough_full == "B"] <- "Bronx"
+borough_full[borough_full == "K"] <- "Brooklyn"
+borough_full[borough_full == "Q"] <- "Queens"
+borough_full[borough_full == "S"] <- "Staten Island"
+arrests_clean$BOROUGH <- borough_full
+
+# Drop rows with missing or zeroed-out coordinates
+arrests_clean <- arrests_clean[
+!is.na(arrests_clean$Latitude) &
+!is.na(arrests_clean$Longitude) &
+!(arrests_clean$Latitude == 0 & arrests_clean$Longitude == 0),
+]
+
+# Make LAW_CAT_CD more readable (F/M/V -> words)
+arrests_clean$LAW_CAT_CD[arrests_clean$LAW_CAT_CD == "F"] <- "Felony"
+arrests_clean$LAW_CAT_CD[arrests_clean$LAW_CAT_CD == "M"] <- "Misdemeanor"
+arrests_clean$LAW_CAT_CD[arrests_clean$LAW_CAT_CD == "V"] <- "Violation"
+
+
+str(arrests_clean)
+summary(arrests_clean$ARREST_YEAR)
+
+```
+
+Keep the useful columns
+```{r}
+keep_cols <- c("ARREST_KEY","ARREST_DATE","ARREST_YEAR","ARREST_MONTH",
+               "BOROUGH","ARREST_PRECINCT","LAW_CODE","LAW_CAT_CD","KY_CD",
+               "OFNS_DESC","PD_DESC","AGE_GROUP","PERP_SEX","PERP_RACE",
+               "Latitude","Longitude")
+arrests_clean <- arrests_clean[, keep_cols]
+str(arrests_clean)
+
+```
+
+
+```{r}
+# Build the indicators to aggregate
+total_vec       <- rep(1L, nrow(arrests_clean))
+felony_vec      <- as.integer(arrests_clean$LAW_CAT_CD == "Felony")
+misdemeanor_vec <- as.integer(arrests_clean$LAW_CAT_CD == "Misdemeanor")
+violation_vec   <- as.integer(arrests_clean$LAW_CAT_CD == "Violation")
+
+to_agg <- cbind(total_arrests = total_vec,
+                felony_arrests = felony_vec,
+                misdemeanor_arrests = misdemeanor_vec,
+                violation_arrests= violation_vec)
+
+arrests_boro_year <- aggregate(to_agg,by = list(borough = arrests_clean$BOROUGH,
+                                                arrest_year = arrests_clean$ARREST_YEAR),
+                               FUN = sum,na.rm = TRUE)
+arrests_boro_year
+
+```
+
+Total Arrests Bar Plot 
+```{r}
+latest_year <- max(arrests_boro_year$arrest_year, na.rm = TRUE)
+
+data_latest <- arrests_boro_year[arrests_boro_year$arrest_year == latest_year, ]
+
+ggplot(data_latest, aes(x = borough, y = total_arrests)) + geom_col() + 
+  labs(title = paste("Total Arrests by Borough in", latest_year),
+       x = "Borough",
+       y = "Number of Arrests") + theme_minimal()
+```
+
+Write to CSV
+```{r}
+# Full row-level cleaned dataset
+write.csv(arrests_clean, "NYPD_Arrests_Clean.csv", row.names = FALSE)
+
+# Borough-by-year summary
+write.csv(arrests_boro_year, "NYPD_Arrests_Borough_Year_Summary.csv",row.names = FALSE)
+
+```
