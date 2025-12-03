@@ -17,16 +17,6 @@ sld_NY_state <- sld_orig[sld_orig$STATEFP == 36, ] # 36 is NY State FIPS code, f
 
 # write.csv(sld_NY_state, "sld_NY_state.csv") # write only NY state entries to csv
 
-#---NYC COUNTY NAMES-----------------------------------------------------------------------------------------
-# didn't need this code
-# sld_NY_state$countyName <- NA
-# sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 47, "Brooklyn", sld_NY_state$countyName)
-# sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 81, "Queens", sld_NY_state$countyName)
-# sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 61, "Manhattan", sld_NY_state$countyName)
-# sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 5, "Bronx", sld_NY_state$countyName)
-# sld_NY_state$countyName <- ifelse(sld_NY_state$COUNTYFP == 85, "Staten Island", sld_NY_state$countyName)
-# na.omit(sld_NY_state) # omit any counties that are not the 5 boroughs
-
 #---NAMING COLUMNS (this was less helpful)-------------------------------------------------------------------
 # colnames(sld_NY_state)
 # sld_colnames <- c("Object ID",
@@ -226,6 +216,7 @@ sld_NY_state <- sld_NY_state[sld_NY_state$D1_FLAG == 0,] # still 15226 observati
 unwanted_cols <- c(unwanted_cols, "D1_FLAG")
 
 sld_NY_tomerge <- sld_NY_state[, -which(colnames(sld_NY_state) %in% unwanted_cols)] #this sol from https://stackoverflow.com/questions/9845929/removing-a-list-of-columns-from-a-data-frame-using-subset
+
 ```
 
 Download the zipped FIPS_data folder and extract it (as a folder) to the directory that this notebook is in.
@@ -236,6 +227,7 @@ county_FIPS_NY <- county_FIPS[county_FIPS$State.FIPS.code == 36, ] # only includ
 # process the county fips so they match the format of the SLD (36001 --> 1)
 for (i in 1:length(county_FIPS_NY$County.Name)){
   county_FIPS_NY[i,"County.FIPS.code"] = county_FIPS_NY[i,"County.FIPS.code"] - 36000
+  county_FIPS_NY[i, "County.Name"] <- sub(" County, New York", "", county_FIPS_NY[i, "County.Name"])
 }
 
 county_FIPS_tomerge <- county_FIPS_NY[, c("County.Name", "County.FIPS.code")]
@@ -252,4 +244,20 @@ sld_NY_merged <- sld_NY_merged %>%
              COUNTY_Name = County.Name)
 
 write.csv(sld_NY_merged, "sld_NY_state.csv") # write only NY state entries to csv
+```
+```{r}
+#-------------NYC Data ONLY---------------------------------
+#---NYC DATA FILTER-----------------------------------------------------------------------------------------
+# didn't need this code
+# sld_NY_city$countyName <- NA
+# sld_NY_city$countyName <- ifelse(sld_NY_city$COUNTYFP == 47, "Brooklyn", sld_NY_city$countyName)
+# sld_NY_city$countyName <- ifelse(sld_NY_city$COUNTYFP == 81, "Queens", sld_NY_city$countyName)
+# sld_NY_city$countyName <- ifelse(sld_NY_city$COUNTYFP == 61, "Manhattan", sld_NY_city$countyName)
+# sld_NY_city$countyName <- ifelse(sld_NY_city$COUNTYFP == 5, "Bronx", sld_NY_city$countyName)
+# sld_NY_city$countyName <- ifelse(sld_NY_city$COUNTYFP == 85, "Staten Island", sld_NY_city$countyName)
+# sld_NY_city<- na.omit(sld_NY_city) # omit any counties that are not the 5 boroughs
+nyc_counties <- c("Bronx", "Kings", "New York", "Queens", "Richmond") # bronx, brooklyn, manhattan, queens, staten island
+
+sld_NY_city <- sld_NY_merged %>% filter(COUNTY_Name %in% nyc_counties)
+write.csv(sld_NY_city, "sld_NY_city.csv")
 ```
