@@ -1,0 +1,402 @@
+---
+title: "Arrest_Data_Modeling"
+author: "Luca Cevaer-Corey"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+#install.packages(c("sf", "tigris", "ggplot2"))  # if needed
+
+library(sf)
+library(tigris)
+library(ggplot2)
+
+options(tigris_use_cache = TRUE)
+
+# Set project folder
+setwd("~/Desktop/CSE160_Real_Estate/")
+```
+
+```{r}
+# Read SLD NYC file (the one that has TRACT_GEOID and ZIP)
+sld <- read.csv("sld_ny_city_with_zips.csv", stringsAsFactors = FALSE)
+
+# Basic structure
+str(sld)[1:10]
+
+# Sanity: check that TRACT_GEOID and ZIP exist
+stopifnot("TRACT_GEOID" %in% names(sld))
+stopifnot("ZIP" %in% names(sld))
+
+# Coerce to character (avoid scientific notation issues)
+sld$TRACT_GEOID <- as.character(sld$TRACT_GEOID)
+sld$ZIP <- as.character(sld$ZIP)
+
+# Check lengths of GEOIDs
+table(nchar(sld$TRACT_GEOID))
+
+# Peek at a few rows
+head(sld[, c("TRACT_GEOID", "countyName", "ZIP")])
+length(unique(sld$TRACT_GEOID))
+length(unique(sld$ZIP))
+
+
+```
+
+```{r}
+# Download NY state tracts (sf)
+ny_tracts <- tracts(state = "NY", year = 2020, class = "sf")
+
+# GEOID is the 11-digit tract ID
+str(ny_tracts$GEOID)
+
+# Optional: restrict to NYC counties via COUNTYFP (Bronx=005, Kings=047, New York=061, Queens=081, Richmond=085)
+nyc_counties <- c("005", "047", "061", "081", "085")
+nyc_tracts <- ny_tracts[ny_tracts$COUNTYFP %in% nyc_counties, ]
+
+nrow(nyc_tracts)   # how many tracts
+
+```
+
+```{r}
+# Use the deduplicated SLD one ZIP per tract
+sld_zip <- sld[, c("TRACT_GEOID", "ZIP", "countyName")]
+sld_zip$TRACT_GEOID <- as.character(sld_zip$TRACT_GEOID)
+sld_zip$ZIP <- as.character(sld_zip$ZIP)
+
+# drop rows with missing ZIP
+sld_zip <- sld_zip[!is.na(sld_zip$ZIP) & sld_zip$ZIP != "", ]
+
+# if a tract has multiple ZIPs, keep the first
+sld_zip <- sld_zip[!duplicated(sld_zip$TRACT_GEOID), ]
+
+# sanity checks
+nrow(sld_zip) # tracts that now have exactly one ZIP
+length(unique(sld_zip$ZIP))
+
+# Merge onto NYC tracts
+nyc_tracts_merged <- merge(
+  nyc_tracts,
+  sld_zip[, c("TRACT_GEOID", "ZIP")],
+  by.x = "GEOID",
+  by.y = "TRACT_GEOID",
+  all.x = TRUE
+)
+
+# Check ZIP coverage and uniqueness
+sum(is.na(nyc_tracts_merged$ZIP))      # tracts with no ZIP
+length(unique(nyc_tracts_merged$ZIP))  # unique ZIPs
+length(unique(nyc_tracts_merged$GEOID)) == nrow(nyc_tracts_merged)  # TRUE = no duplication
+
+```
+
+
+```{r}
+# Load cleaned arrests
+arrests_clean <- read.csv("NYPD_Arrests_Clean.csv", stringsAsFactors = FALSE)
+
+# Sanity: check coordinates
+summary(arrests_clean$Latitude)
+summary(arrests_clean$Longitude)
+
+# Filter to valid coords
+arrests_xy <- arrests_clean[
+  !is.na(arrests_clean$Latitude) &
+    !is.na(arrests_clean$Longitude) &
+    !(arrests_clean$Latitude == 0 & arrests_clean$Longitude == 0),
+]
+
+nrow(arrests_xy)
+
+# Convert to sf points (WGS84)
+arrests_sf <- st_as_sf(
+  arrests_xy,
+  coords = c("Longitude", "Latitude"),
+  crs = 4326
+)
+
+# Transform both to same CRS (use tracts' CRS)
+nyc_tracts_merged <- st_transform(nyc_tracts_merged, 2263)  # NY State Plane as example
+arrests_sf <- st_transform(arrests_sf, st_crs(nyc_tracts_merged))
+
+# Spatial join: assign each arrest the ZIP from the tract it falls in
+arrests_with_zip_sf <- st_join(arrests_sf, nyc_tracts_merged["ZIP"])
+
+# Drop geometry back to data.frame
+arrests_with_zip <- as.data.frame(st_drop_geometry(arrests_with_zip_sf))
+
+# How many arrests got a ZIP?
+sum(!is.na(arrests_with_zip$ZIP))
+sum(is.na(arrests_with_zip$ZIP))
+
+# Drop arrests without ZIPs
+arrests_with_zip <- arrests_with_zip[!is.na(arrests_with_zip$ZIP), ]
+
+
+```
+
+```{r}
+# Clean up weird values
+arrests_with_zip$LAW_CAT_CD[arrests_with_zip$LAW_CAT_CD %in% c("", "9", "I")] <- NA
+
+# Total arrests per ZIP
+crime_zip <- aggregate(
+  ARREST_KEY ~ ZIP,
+  data = arrests_with_zip,
+  FUN = length
+)
+names(crime_zip)[names(crime_zip) == "ARREST_KEY"] <- "total_arrests_zip"
+
+# Felony arrests per ZIP
+crime_zip_fel <- aggregate(
+  I(LAW_CAT_CD == "Felony") ~ ZIP,
+  data = arrests_with_zip,
+  FUN = function(x) sum(x, na.rm = TRUE)
+)
+names(crime_zip_fel)[2] <- "felony_zip"
+
+# Misdemeanor arrests per ZIP
+crime_zip_mis <- aggregate(
+  I(LAW_CAT_CD == "Misdemeanor") ~ ZIP,
+  data = arrests_with_zip,
+  FUN = function(x) sum(x, na.rm = TRUE)
+)
+names(crime_zip_mis)[2] <- "misdemeanor_zip"
+
+# Violation arrests per ZIP
+crime_zip_viol <- aggregate(
+  I(LAW_CAT_CD == "Violation") ~ ZIP,
+  data = arrests_with_zip,
+  FUN = function(x) sum(x, na.rm = TRUE)
+)
+names(crime_zip_viol)[2] <- "violation_zip"
+
+# Merge all crime summaries
+crime_zip <- merge(crime_zip, crime_zip_fel, by = "ZIP", all = TRUE)
+crime_zip <- merge(crime_zip, crime_zip_mis, by = "ZIP", all = TRUE)
+crime_zip <- merge(crime_zip, crime_zip_viol, by = "ZIP", all = TRUE)
+
+# Replace any remaining NAs with zero
+crime_zip[is.na(crime_zip)] <- 0
+
+head(crime_zip)
+summary(crime_zip$total_arrests_zip)
+summary(crime_zip$felony_zip)
+
+```
+
+```{r}
+# Read clean 2017 property sales (sf object)
+prop_2017_sf <- readRDS("clean_property_2017.rds")  # should be sf
+
+# Sanity: check structure
+prop_2017_sf
+str(prop_2017_sf)
+
+# Make sure CRS matches tracts
+prop_2017_sf <- st_transform(prop_2017_sf, st_crs(nyc_tracts_merged))
+
+# Spatial join: properties → tracts (with ZIP)
+prop_with_zip_sf <- st_join(prop_2017_sf, nyc_tracts_merged["ZIP"])
+
+prop_with_zip <- as.data.frame(st_drop_geometry(prop_with_zip_sf))
+
+# Sanity: how many properties have ZIP?
+sum(!is.na(prop_with_zip$ZIP))
+sum(is.na(prop_with_zip$ZIP))
+
+# Drop ones without ZIP
+prop_with_zip <- prop_with_zip[!is.na(prop_with_zip$ZIP), ]
+
+# Basic summary
+summary(prop_with_zip$price)
+
+```
+
+```{r}
+# Merge crime metrics onto property sales by ZIP
+model_zip_df <- merge(
+  prop_with_zip,
+  crime_zip,
+  by = "ZIP",
+  all.x = TRUE
+)
+
+# NAs for crime → 0 (no recorded arrests)
+model_zip_df$total_arrests_zip[is.na(model_zip_df$total_arrests_zip)] <- 0
+model_zip_df$felony_zip[is.na(model_zip_df$felony_zip)] <- 0
+model_zip_df$misdemeanor_zip[is.na(model_zip_df$misdemeanor_zip)] <- 0
+model_zip_df$violation_zip[is.na(model_zip_df$violation_zip)] <- 0
+
+# Create log price and log sqft
+model_zip_df$log_price <- log(model_zip_df$price)
+model_zip_df$log_tot_sqft <- log(model_zip_df$tot_sqft + 1)
+
+# Simple sanity plots
+hist(model_zip_df$log_price, main = "Log Price", xlab = "log(price)")
+hist(model_zip_df$total_arrests_zip, main = "Total Arrests per ZIP", xlab = "count")
+
+
+```
+
+
+```{r}
+set.seed(160)
+n <- nrow(model_zip_df)
+
+idx <- sample(1:n, n)
+train_n <- floor(0.7 * n)
+valid_n <- floor(0.15 * n)
+
+train_idx <- idx[1:train_n]
+valid_idx <- idx[(train_n + 1):(train_n + valid_n)]
+test_idx  <- idx[(train_n + valid_n + 1):n]
+
+train <- model_zip_df[train_idx, ]
+valid <- model_zip_df[valid_idx, ]
+test  <- model_zip_df[test_idx, ]
+
+nrow(train); nrow(valid); nrow(test)
+
+```
+
+
+```{r}
+rmse <- function(y, p) {
+  sqrt(mean((y - p)^2, na.rm = TRUE))
+}
+
+```
+
+```{r}
+mA <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy,
+  data = train
+)
+
+summary(mA)
+
+```
+
+```{r}
+mB <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy +
+    factor(ZIP),
+  data = train
+)
+
+summary(mB)$adj.r.squared
+
+```
+
+```{r}
+mC <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy +
+    total_arrests_zip,
+  data = train
+)
+
+summary(mC)
+
+```
+
+```{r}
+# Baseline
+predA_valid <- predict(mA, newdata = valid)
+predA_test  <- predict(mA, newdata = test)
+
+rmseA_valid <- rmse(valid$log_price, predA_valid)
+rmseA_test  <- rmse(test$log_price,  predA_test)
+
+# Baseline + crime (no ZIP FE)
+predC_valid <- predict(mC, newdata = valid)
+predC_test  <- predict(mC, newdata = test)
+
+rmseC_valid <- rmse(valid$log_price, predC_valid)
+rmseC_test  <- rmse(test$log_price,  predC_test)
+
+rmseA_valid; rmseC_valid
+rmseA_test;  rmseC_test
+
+```
+
+```{r}
+predC_test <- predict(mC, newdata = test)
+
+ggplot(data.frame(
+  actual = test$log_price,
+  predicted = predC_test
+), aes(x = actual, y = predicted)) +
+  geom_point(alpha = 0.3, size = 0.7) +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal() +
+  labs(
+    title = "Predicted vs Actual Log Sale Price (Model C – baseline + crime)",
+    x = "Actual log(price)",
+    y = "Predicted log(price)"
+  )
+
+```
+```{r}
+library(randomForest)
+# Prepare RF training dataframe
+rf_train <- train[, c("log_price", "log_tot_sqft", "yr_built",
+                      "land_sqft", "bldg_num_ctgy", "total_arrests_zip")]
+
+rf_valid <- valid[, c("log_price", "log_tot_sqft", "yr_built",
+                      "land_sqft", "bldg_num_ctgy", "total_arrests_zip")]
+
+rf_test <- test[, c("log_price", "log_tot_sqft", "yr_built",
+                    "land_sqft", "bldg_num_ctgy", "total_arrests_zip")]
+
+# Random Forest Model A (this is the baseline)
+set.seed(160)
+
+rfA <- randomForest(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy,
+  data = rf_train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
+)
+
+# Validation + Test predictions
+rfA_pred_valid <- predict(rfA, newdata = rf_valid)
+rfA_pred_test  <- predict(rfA, newdata = rf_test)
+
+# RMSEs
+rfA_valid_rmse <- rmse(rf_valid$log_price, rfA_pred_valid)
+rfA_test_rmse  <- rmse(rf_test$log_price, rfA_pred_test)
+
+rfA_valid_rmse
+rfA_test_rmse
+
+# Random Forest Model C (baseline + crime)
+set.seed(160)
+
+rfC <- randomForest(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy +
+    total_arrests_zip,
+  data = rf_train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
+)
+
+rfC_pred_valid <- predict(rfC, newdata = rf_valid)
+rfC_pred_test  <- predict(rfC, newdata = rf_test)
+
+rfC_valid_rmse <- rmse(rf_valid$log_price, rfC_pred_valid)
+rfC_test_rmse  <- rmse(rf_test$log_price, rfC_pred_test)
+
+rfC_valid_rmse
+rfC_test_rmse
+
+
+# Variable importance plots
+varImpPlot(rfA, main = "RF Baseline – Variable Importance")
+varImpPlot(rfC, main = "RF Crime Model – Variable Importance")
+
+```

@@ -1,0 +1,276 @@
+---
+title: "Arrest_Data_Tasks"
+author: "Luca Cevaer-Corey"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+# Read in cleaned data
+prop_2017 <- readRDS("~/Desktop/CSE160_Real_Estate/clean_property_2017.rds")
+prop_2017 <- as.data.frame(sf::st_drop_geometry(prop_2017))
+
+str(prop_2017)
+
+# Map integer borough codes -> names
+prop_2017$borough_code <- as.integer(prop_2017$borough)
+
+prop_2017$borough_name <- prop_2017$borough_code
+prop_2017$borough_name[prop_2017$borough_code == 1] <- "Manhattan"
+prop_2017$borough_name[prop_2017$borough_code == 2] <- "Bronx"
+prop_2017$borough_name[prop_2017$borough_code == 3] <- "Brooklyn"
+prop_2017$borough_name[prop_2017$borough_code == 4] <- "Queens"
+prop_2017$borough_name[prop_2017$borough_code == 5] <- "Staten Island"
+
+prop_2017$borough <- factor(prop_2017$borough_name)
+```
+
+
+```{r}
+# remove weird / extreme prices (already filtered > 10, but we can also trim top 1%)
+q_hi <- quantile(prop_2017$price, 0.99, na.rm = TRUE)
+prop_2017 <- prop_2017[prop_2017$price <= q_hi, ]
+
+prop_2017$log_price    <- log(prop_2017$price)
+prop_2017$log_tot_sqft <- log(prop_2017$tot_sqft + 1)  # +1 to avoid log(0)
+```
+
+
+```{r}
+arrests_boro_year <- read.csv(
+  "NYPD_Arrests_Borough_Year_Summary.csv",
+  stringsAsFactors = FALSE
+)
+
+crime_boro <- aggregate(
+  cbind(total_arrests, felony_arrests, misdemeanor_arrests, violation_arrests) ~ borough,
+  data = arrests_boro_year,
+  FUN = sum
+)
+
+crime_boro
+```
+
+
+```{r}
+# merge on borough name
+model_df <- merge(
+  prop_2017,
+  crime_boro,
+  by = "borough"
+)
+
+str(model_df)
+
+```
+
+
+```{r}
+n_props_boro <- table(model_df$borough)
+model_df$props_in_boro <- as.numeric(n_props_boro[model_df$borough])
+
+model_df$felony_per_prop      <- model_df$felony_arrests      / model_df$props_in_boro
+model_df$misdemeanor_per_prop <- model_df$misdemeanor_arrests / model_df$props_in_boro
+model_df$violation_per_prop   <- model_df$violation_arrests   / model_df$props_in_boro
+model_df$total_per_prop       <- model_df$total_arrests       / model_df$props_in_boro
+```
+
+```{r}
+# treat borough as factor
+model_df$borough <- factor(model_df$borough)
+
+m_base <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough,
+  data = model_df
+)
+
+summary(m_base)
+
+```
+
+Model 1: total crime intensity
+```{r}
+m_crime_total <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough +
+    total_per_prop,
+  data = model_df
+)
+
+summary(m_crime_total)
+
+
+```
+
+Model 2: different crime types
+```{r}
+m_crime_types <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough +
+    felony_per_prop + misdemeanor_per_prop + violation_per_prop,
+  data = model_df
+)
+
+summary(m_crime_types)
+```
+
+K-fold cross-validation
+```{r}
+set.seed(160)
+
+kfold_cv <- function(data, formula, K = 5) {
+  n <- nrow(data)
+  # random fold assignments
+  folds <- sample(rep(1:K, length.out = n))
+  
+  rmse_vals <- numeric(K)
+  
+  for (k in 1:K) {
+    train_idx <- which(folds != k)
+    test_idx  <- which(folds == k)
+    
+    train_dat <- data[train_idx, ]
+    test_dat  <- data[test_idx, ]
+    
+    fit <- lm(formula, data = train_dat)
+    preds <- predict(fit, newdata = test_dat)
+    y_true <- test_dat$log_price
+    
+    rmse_vals[k] <- sqrt(mean((preds - y_true)^2, na.rm = TRUE))
+  }
+  
+  mean(rmse_vals)
+}
+```
+
+```{r}
+aggregate(total_per_prop ~ borough, data = model_df, function(x) length(unique(x)))
+aggregate(felony_per_prop ~ borough, data = model_df, function(x) length(unique(x)))
+
+m_noboro <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy,
+  data = model_df
+)
+
+m_noboro_crime <- lm(
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy +
+    total_per_prop,
+  data = model_df
+)
+
+summary(m_noboro)
+summary(m_noboro_crime)
+
+set.seed(160)
+rmse_noboro <- kfold_cv(
+  model_df,
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy,
+  K = 5
+)
+
+set.seed(160)
+rmse_noboro_crime <- kfold_cv(
+  model_df,
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + total_per_prop,
+  K = 5
+)
+
+rmse_noboro
+rmse_noboro_crime
+```
+
+Out of sample performance
+```{r}
+# baseline
+rmse_base <- kfold_cv(
+  model_df,
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough,
+  K = 5
+)
+
+# with total crime
+rmse_crime_total <- kfold_cv(
+  model_df,
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough +
+    total_per_prop,
+  K = 5
+)
+
+# with crime types
+rmse_crime_types <- kfold_cv(
+  model_df,
+  log_price ~ log_tot_sqft + yr_built + land_sqft + bldg_num_ctgy + borough +
+    felony_per_prop + misdemeanor_per_prop + violation_per_prop,
+  K = 5
+)
+
+rmse_base
+rmse_crime_total
+rmse_crime_types
+
+```
+
+```{r}
+
+library(ggplot2)
+
+boro_summary <- aggregate(
+  cbind(price, log_price) ~ borough,
+  data = model_df,
+  FUN = mean
+)
+
+# Calculate average arrests-per-property for each borough
+boro_summary$total_per_prop <- tapply(
+  model_df$total_per_prop,
+  model_df$borough,
+  mean
+)
+
+# Build plotting data frame
+df_plot <- data.frame(
+  borough   = boro_summary$borough,
+  log_price = boro_summary$log_price,
+  log_crime = log10(boro_summary$total_per_prop + 1)
+)
+
+df_plot
+
+label_df <- df_plot
+
+# move labels slightly above points
+label_df$log_crime_label  <- label_df$log_crime
+label_df$log_price_label  <- label_df$log_price + 0.04
+
+ggplot(df_plot, aes(x = log_crime, y = log_price)) +
+  geom_point(size = 3, color = "steelblue") +
+  
+  # trend line
+  geom_smooth(method = "lm", se = FALSE,
+              color = "gray40", linetype = "dashed") +
+  
+  geom_text(
+    data = label_df,
+    aes(x = log_crime_label, y = log_price_label, label = borough),
+    size = 5,
+    vjust = 0
+  ) +
+  coord_cartesian(
+    ylim = c(min(df_plot$log_price) - 0.05,
+             max(df_plot$log_price) + 0.15),
+    clip = "off"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.margin = ggplot2::margin(10, 40, 10, 10)  # <-- key fix
+  ) +
+  labs(
+    title = "Borough-level Crime vs Mean Property Price",
+    x = "log10(Average Total Arrests per Property + 1)",
+    y = "Mean Log Sale Price"
+  )
+
+
+
+
+```

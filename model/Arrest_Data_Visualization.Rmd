@@ -1,0 +1,139 @@
+---
+title: "Arrest Data Visualization"
+author: "Luca Cevaer-Corey"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(ggplot2)
+setwd("~/Desktop/CSE160_Real_Estate/")
+
+arrests_raw <- read.csv("NYPD_Arrest_Data_(Year_to_Date)_20251203.csv",
+                        stringsAsFactors = FALSE)
+
+# Use the original raw data for X/Y map
+map_data <- arrests_raw
+
+# Keep only valid boroughs
+valid_boros <- c("M", "B", "K", "Q", "S")
+map_data <- map_data[map_data$ARREST_BORO %in% valid_boros, ]
+
+# Drop rows with missing or zero X/Y coordinates
+
+map_data <- map_data[!is.na(map_data$X_COORD_CD) &
+                       !is.na(map_data$Y_COORD_CD) &
+                       map_data$X_COORD_CD != 0 &map_data$Y_COORD_CD != 0,]
+
+map_data <- map_data[
+  map_data$X_COORD_CD >= 900000 &
+    map_data$X_COORD_CD <= 1060000 &
+    map_data$Y_COORD_CD >= 120000 &
+    map_data$Y_COORD_CD <= 275000,
+]
+
+# sample for speed
+set.seed(160)  # reproducible
+n_keep <- min(200000, nrow(map_data))  # cap at 50k points
+keep_idx <- sample(1:nrow(map_data), n_keep)
+map_data <- map_data[keep_idx, ]
+
+# Map borough abbreviations to full names (for legend)
+
+borough_full <- map_data$ARREST_BORO
+borough_full[borough_full == "M"] <- "Manhattan"
+borough_full[borough_full == "B"] <- "Bronx"
+borough_full[borough_full == "K"] <- "Brooklyn"
+borough_full[borough_full == "Q"] <- "Queens"
+borough_full[borough_full == "S"] <- "Staten Island"
+map_data$BOROUGH <- factor(borough_full)
+
+# Plot: X_COORD_CD vs Y_COORD_CD, colored by borough
+ggplot(map_data, aes(x = X_COORD_CD, y = Y_COORD_CD, color = BOROUGH)) +
+  geom_point(alpha = 0.1, size = 0.5) +
+  coord_equal() +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(
+    values = c(
+      "Bronx"        = "#E63946",  # red
+      "Brooklyn"     = "#2A9D8F",  # green
+      "Manhattan"    = "#264653",  # dark blue
+      "Queens"       = "#F4A261",  # orange
+      "Staten Island"= "#9D4EDD"   # purple
+    )
+  ) +
+  labs(
+    title = "NYPD Arrest Locations by Borough (X/Y Coordinate System)",
+    color = "Borough"
+  )
+
+
+```
+
+```{r}
+map_data <- arrests_raw
+
+# Keep valid lat/long
+map_data <- map_data[
+  !is.na(map_data$Latitude) &
+  !is.na(map_data$Longitude) &
+  !(map_data$Latitude == 0 & map_data$Longitude == 0), ]
+
+# Sample to speed up plotting
+set.seed(160)
+map_data <- map_data[sample(1:nrow(map_data), min(200000, nrow(map_data))), ]
+
+ggplot(map_data, aes(x = Longitude, y = Latitude)) +
+  geom_point(alpha = 0.1, size = 0.5, color = "steelblue") +
+  coord_quickmap() +
+  theme_void() +
+  labs(title = "NYC Arrests by Latitude/Longitude")
+
+```
+
+```{r}
+heat_data <- arrests_raw
+
+# Keep only valid boroughs
+valid_boros <- c("M", "B", "K", "Q", "S")
+heat_data <- heat_data[heat_data$ARREST_BORO %in% valid_boros, ]
+
+# Drop rows with missing or zero X/Y coordinates
+heat_data <- heat_data[
+  !is.na(heat_data$X_COORD_CD) &
+    !is.na(heat_data$Y_COORD_CD) &
+    heat_data$X_COORD_CD != 0 &
+    heat_data$Y_COORD_CD != 0,
+]
+
+# Keep only points inside NYC projected bounds
+heat_data <- heat_data[
+  heat_data$X_COORD_CD >= 900000 &
+    heat_data$X_COORD_CD <= 1060000 &
+    heat_data$Y_COORD_CD >= 120000 &
+    heat_data$Y_COORD_CD <= 275000,
+]
+
+# Sample for speed
+set.seed(160)
+n_keep <- min(200000, nrow(heat_data))
+heat_data <- heat_data[sample(1:nrow(heat_data), n_keep), ]
+
+# Ranges for coord_equal (remove any remaining NA just in case)
+x_range <- range(heat_data$X_COORD_CD, na.rm = TRUE)
+y_range <- range(heat_data$Y_COORD_CD, na.rm = TRUE)
+
+# Heatmap-style density of arrests in X/Y space
+ggplot(heat_data, aes(x = X_COORD_CD, y = Y_COORD_CD)) +
+  geom_bin2d(bins = 80) +
+  coord_equal(xlim = x_range, ylim = y_range, expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "Density of NYPD Arrests (X/Y Coordinate Heatmap)",
+    x = NULL,
+    y = NULL,
+    fill = "Count"
+  )
+```
