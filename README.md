@@ -10,14 +10,14 @@
 * Luca Cevaer-Corey <lac525@lehigh.edu>
 * Dean Clark <dmc227@lehigh.edu>
 * Ester Frank <esf228@lehigh.edu>
-* Joshua Gao <jog229@lehigh.edu>
+* Joshua Guo <jog229@lehigh.edu>
 * Sophia Pham <slp227@lehigh.edu>
 
 ## Problem Statement
 ---
-<b>Finding affordable yet desirable housing in New York City (and state)is a persistent challenge.</b>
+<b>Finding affordable yet desirable housing in New York City (and state) is a persistent challenge.</b>
 
-To aid with this, our goal is to create a model that can most acurately predict the price of a residential housing unit based on many different predictive features that we compiled. 
+To aid with this, our goal is to create a model that can most accurately predict the price of a residential housing unit based on many different predictive features that we compiled.
 
 ## How to Run 
 ---
