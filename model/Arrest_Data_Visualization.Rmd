@@ -33,7 +33,6 @@ map_data <- map_data[
     map_data$Y_COORD_CD <= 275000,
 ]
 
-# sample for speed
 set.seed(160)  # reproducible
 n_keep <- min(200000, nrow(map_data))  # cap at 50k points
 keep_idx <- sample(1:nrow(map_data), n_keep)
@@ -49,7 +48,7 @@ borough_full[borough_full == "Q"] <- "Queens"
 borough_full[borough_full == "S"] <- "Staten Island"
 map_data$BOROUGH <- factor(borough_full)
 
-# Plot: X_COORD_CD vs Y_COORD_CD, colored by borough
+# Plot the X_COORD_CD vs Y_COORD_CD and get colored by borough
 ggplot(map_data, aes(x = X_COORD_CD, y = Y_COORD_CD, color = BOROUGH)) +
   geom_point(alpha = 0.1, size = 0.5) +
   coord_equal() +
@@ -81,7 +80,6 @@ map_data <- map_data[
   !is.na(map_data$Longitude) &
   !(map_data$Latitude == 0 & map_data$Longitude == 0), ]
 
-# Sample to speed up plotting
 set.seed(160)
 map_data <- map_data[sample(1:nrow(map_data), min(200000, nrow(map_data))), ]
 
@@ -116,7 +114,6 @@ heat_data <- heat_data[
     heat_data$Y_COORD_CD <= 275000,
 ]
 
-# Sample for speed
 set.seed(160)
 n_keep <- min(200000, nrow(heat_data))
 heat_data <- heat_data[sample(1:nrow(heat_data), n_keep), ]
