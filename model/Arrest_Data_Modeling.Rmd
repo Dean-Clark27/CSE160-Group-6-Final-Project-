@@ -26,7 +26,7 @@ sld <- read.csv("sld_ny_city_with_zips.csv", stringsAsFactors = FALSE)
 # Basic structure
 str(sld)[1:10]
 
-# Sanity: check that TRACT_GEOID and ZIP exist
+# check that TRACT_GEOID and ZIP exist
 stopifnot("TRACT_GEOID" %in% names(sld))
 stopifnot("ZIP" %in% names(sld))
 
@@ -52,7 +52,7 @@ ny_tracts <- tracts(state = "NY", year = 2020, class = "sf")
 # GEOID is the 11-digit tract ID
 str(ny_tracts$GEOID)
 
-# Optional: restrict to NYC counties via COUNTYFP (Bronx=005, Kings=047, New York=061, Queens=081, Richmond=085)
+# Restrict to NYC counties via COUNTYFP (Bronx=005, Kings=047, New York=061, Queens=081, Richmond=085)
 nyc_counties <- c("005", "047", "061", "081", "085")
 nyc_tracts <- ny_tracts[ny_tracts$COUNTYFP %in% nyc_counties, ]
 
@@ -72,7 +72,6 @@ sld_zip <- sld_zip[!is.na(sld_zip$ZIP) & sld_zip$ZIP != "", ]
 # if a tract has multiple ZIPs, keep the first
 sld_zip <- sld_zip[!duplicated(sld_zip$TRACT_GEOID), ]
 
-# sanity checks
 nrow(sld_zip) # tracts that now have exactly one ZIP
 length(unique(sld_zip$ZIP))
 
@@ -97,7 +96,7 @@ length(unique(nyc_tracts_merged$GEOID)) == nrow(nyc_tracts_merged)  # TRUE = no 
 # Load cleaned arrests
 arrests_clean <- read.csv("NYPD_Arrests_Clean.csv", stringsAsFactors = FALSE)
 
-# Sanity: check coordinates
+# check coordinates
 summary(arrests_clean$Latitude)
 summary(arrests_clean$Longitude)
 
@@ -121,13 +120,14 @@ arrests_sf <- st_as_sf(
 nyc_tracts_merged <- st_transform(nyc_tracts_merged, 2263)  # NY State Plane as example
 arrests_sf <- st_transform(arrests_sf, st_crs(nyc_tracts_merged))
 
-# Spatial join: assign each arrest the ZIP from the tract it falls in
+# Spatial join
+# Assign each arrest the ZIP from the tract it falls in
 arrests_with_zip_sf <- st_join(arrests_sf, nyc_tracts_merged["ZIP"])
 
 # Drop geometry back to data.frame
 arrests_with_zip <- as.data.frame(st_drop_geometry(arrests_with_zip_sf))
 
-# How many arrests got a ZIP?
+# How many arrests got a ZIP
 sum(!is.na(arrests_with_zip$ZIP))
 sum(is.na(arrests_with_zip$ZIP))
 
@@ -191,19 +191,19 @@ summary(crime_zip$felony_zip)
 # Read clean 2017 property sales (sf object)
 prop_2017_sf <- readRDS("clean_property_2017.rds")  # should be sf
 
-# Sanity: check structure
+# Check structure of real estate database
 prop_2017_sf
 str(prop_2017_sf)
 
 # Make sure CRS matches tracts
 prop_2017_sf <- st_transform(prop_2017_sf, st_crs(nyc_tracts_merged))
 
-# Spatial join: properties → tracts (with ZIP)
+# Spatial join the properties to the tracts (with ZIP)
 prop_with_zip_sf <- st_join(prop_2017_sf, nyc_tracts_merged["ZIP"])
 
 prop_with_zip <- as.data.frame(st_drop_geometry(prop_with_zip_sf))
 
-# Sanity: how many properties have ZIP?
+# How many properties have ZIP
 sum(!is.na(prop_with_zip$ZIP))
 sum(is.na(prop_with_zip$ZIP))
 
@@ -224,7 +224,7 @@ model_zip_df <- merge(
   all.x = TRUE
 )
 
-# NAs for crime → 0 (no recorded arrests)
+# NAs for crime get 0 0 (no recorded arrests)
 model_zip_df$total_arrests_zip[is.na(model_zip_df$total_arrests_zip)] <- 0
 model_zip_df$felony_zip[is.na(model_zip_df$felony_zip)] <- 0
 model_zip_df$misdemeanor_zip[is.na(model_zip_df$misdemeanor_zip)] <- 0
@@ -234,7 +234,7 @@ model_zip_df$violation_zip[is.na(model_zip_df$violation_zip)] <- 0
 model_zip_df$log_price <- log(model_zip_df$price)
 model_zip_df$log_tot_sqft <- log(model_zip_df$tot_sqft + 1)
 
-# Simple sanity plots
+# Simple plots
 hist(model_zip_df$log_price, main = "Log Price", xlab = "log(price)")
 hist(model_zip_df$total_arrests_zip, main = "Total Arrests per ZIP", xlab = "count")
 
