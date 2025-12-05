@@ -29,7 +29,7 @@ Basic Cleaning & Standardization of Crime Dataset
 # Start from the raw data
 arrests_clean <- arrests_raw
 
-# Convert "(null)" strings to NA in all character columns
+# Convert "null" strings to NA in all character columns
 char_cols <- sapply(arrests_clean, is.character)
 
 for (col_name in names(arrests_clean)[char_cols]) {
