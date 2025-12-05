@@ -1,0 +1,301 @@
+---
+title: "NYC Housing Price Prediction Modeling & Analysis"
+output: html_notebook
+---
+
+Install libraries
+
+```{r}
+# We need the tidyverse library for data manipulation, cleaning and plotting
+install.packages("tidyverse")
+
+# We need the sf library (I'm guessing it stands for shapefile) to handle shapefiles like the Real Estate shp, dbf, shx files.
+install.packages("sf")
+```
+
+Load datasets and prep
+
+```{r}
+library(tidyverse)
+library(sf)
+
+set.seed(67)
+
+# 1. Load SLD Data (csv)
+sld_data <- read_csv("sld_ny_city_with_zips.csv") 
+
+# 2. Load Real Estate Data (shapefile)
+real_estate_data_2017 <- st_read("real_property_sales_nyc_2017.shp")
+real_estate_data_2018 <- st_read("real_property_sales_nyc_2018.shp")
+```
+Merging SLD dataset and real_estate dataset
+
+```{r}
+# Standardize Zip Codes ("zip" column is lowercase in real_estate and uppercase in SLD)
+real_estate_data_2017 <- mutate(real_estate_data_2017, zip = as.numeric(zip))
+real_estate_data_2018 <- mutate(real_estate_data_2018, zip = as.numeric(zip))
+sld_data <- mutate(sld_data, ZIP = as.numeric(ZIP))
+
+# Combine the 2017 and 2018 Real Estate datasets
+real_estate_data <- bind_rows(real_estate_data_2017, real_estate_data_2018)
+
+# We aggregate the SLD data by Zip Code to avoid data explosion due to ZIP not being specific enough to describe each census block group
+# This compresses the detailed Census Block data into Zip Code averages
+sld_grouped <- group_by(sld_data, ZIP)
+
+sld_by_zip <- summarise(sld_grouped,
+                        
+    # --- DENSITY (D1) ---
+    D1A = mean(D1A, na.rm = TRUE),          # Gross Residential Density (Housing Units per Acre)
+    D1B = mean(D1B, na.rm = TRUE),          # Gross Population Density (People per Acre)
+    D1C = mean(D1C, na.rm = TRUE),          # Gross Employment Density (Jobs per Acre)
+    
+    # --- DIVERSITY (D2 - Land Use Mix) ---
+    D2A_JPHH = mean(D2A_JPHH, na.rm = TRUE),     # Jobs per Household (Balance of Commercial vs Residential)
+    D2B_E8MIX = mean(D2B_E8MIX, na.rm = TRUE),   # Employment Mix (Diversity of job types available)
+    D2R_JOBPOP = mean(D2R_JOBPOP, na.rm = TRUE), # Job to Population Balance
+    D2A_EPHHM = mean(D2A_EPHHM, na.rm = TRUE),   # Employment & Household Entropy (Mixed-Use Score 0-1)
+    
+    # --- DESIGN (D3 - Walkability Proxies) ---
+    D3A = mean(D3A, na.rm = TRUE),          # Total Road Network Density (Miles of road per sq mile)
+    D3B = mean(D3B, na.rm = TRUE),          # Street Intersection Density (Higher = More walkable grid)
+    
+    # --- TRANSIT ACCESSIBILITY (D4) ---
+    D4A = mean(D4A, na.rm = TRUE),          # Distance to nearest transit stop (meters) - Lower is better
+    D4B025 = mean(D4B025, na.rm = TRUE),    # Proportion of jobs within 0.25 miles of transit
+    D4D = mean(D4D, na.rm = TRUE),          # Transit Frequency (How often bus/subway comes per hour)
+    
+    # --- DESTINATION ACCESSIBILITY (D5) ---
+    D5AR = mean(D5AR, na.rm = TRUE),        # Regional Accessibility to Jobs via Auto (Centrality)
+    D5AE = mean(D5AE, na.rm = TRUE),        # Regional Accessibility to Working Population via Auto
+    
+    # --- WALKABILITY & LIFESTYLE ---
+    NatWalkInd = mean(NatWalkInd, na.rm = TRUE), # National Walkability Index (Score 1-20)
+    
+    # --- LUXURY / BUSINESS PROXIES ---
+    R_HiWageWk = mean(R_HiWageWk, na.rm = TRUE), # Ratio of High Wage Workers (Neighborhood Wealth Proxy)
+    D1C5_OFF = mean(D1C5_OFF, na.rm = TRUE),     # Office Job Density (Indicates Business District/Downtown)
+    D1C5_ENT = mean(D1C5_ENT, na.rm = TRUE),     # Entertainment Job Density (Indicates Nightlife/Trendy Area)
+    
+    # --- RAW COUNTS ---
+    TotPop = sum(TotPop, na.rm = TRUE),     # Total Population in Zip Code
+    TotEmp = sum(TotEmp, na.rm = TRUE),     # Total Employment in Zip Code
+    
+    # --- OTHERS ---
+    Pct_AO0 = mean(Pct_AO0, na.rm = TRUE)        # Percent of Households with ZERO cars (High in NYC core)
+  )
+
+# Merge Real Estate Data (Left) with Aggregated SLD Data (Right)
+housing_merged <- left_join(real_estate_data, sld_by_zip, by = c("zip" = "ZIP"))
+
+# Drop the geometry column since lm() only works with numerical values, not shapes 
+clean_housing_data <- st_drop_geometry(housing_merged)
+    
+# Select only the columns we need for the model
+housing_data_raw <- select(clean_housing_data,
+    price, borough, tot_sqft, yr_built,
+    bldg_ctgy, tot_unit,land_sqft,  
+    
+    # --- SELECTED SLD FEATURES ---
+    D1A, D1B, D1C, D2A_JPHH, D2B_E8MIX, D2R_JOBPOP, D2A_EPHHM,
+    D3A, D3B, D4A, D4B025, D4D, D5AR, D5AE, NatWalkInd,
+    D1C5_OFF, D1C5_ENT, TotPop, TotEmp, Pct_AO0, R_HiWageWk,
+  )
+
+# Final Cleanup on Merged Dataset (since merging by Zip code is messy)
+housing_data <- distinct(housing_data_raw) # Remove duplicates
+housing_data <- na.omit(housing_data)      # Remove rows with missing values
+
+housing_data <- filter(housing_data, price > 1000)        # Remove transfers ($0-$1000) (outliers)
+housing_data <- filter(housing_data, price < 10000000)    # Remove luxury outliers (> $10M) (outliers)
+housing_data <- filter(housing_data, tot_sqft > 100)      # Remove invalid size
+housing_data <- filter(housing_data, yr_built > 0)        # Remove invalid year
+
+bldg_counts <- group_by(housing_data, bldg_ctgy) # Group by category to count frequency
+bldg_counts <- filter(bldg_counts, n() > 50)     #
+housing_data <- ungroup(bldg_counts)             # Keep only categories with > 50 sales (otherwise pred won't work)
+
+cat("\nFinal Cleaned Dataset (Real Estate merged with SLD):", nrow(housing_data), "rows\n")
+```
+
+
+Sanity Check
+- Yields a correlation heat map to visualize correlation between price and SLD features
+- This checks for whether some features in SLD are "good predictors" of price of a real estate (the target variable)
+- Also checks for multicollinearity between features, this helps with feature selection
+
+```{r}
+# Select only numerical features
+numeric_vars <- select(housing_data, where(is.numeric))
+
+# Form the correlation matrix using cor()
+cor_mat <- cor(numeric_vars)
+
+# Turn into data frame
+cor_melt <- as.data.frame(as.table(cor_mat))
+
+# Plot
+ggplot(cor_melt, aes(Var1, Var2, fill = Freq)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", limit = c(-1,1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank()) +
+  labs(title = "Correlation Matrix: Current Feature Set")
+```
+
+Regression Modelling 
+
+```{r}
+# 1. Split Data (70% Train, 15% Validation, 15% Test)
+set.seed(67)
+
+train_idx <- sample(seq_len(nrow(housing_data)), size = floor(0.7 * nrow(housing_data))) # Index at 0.7 of whole data
+
+train_set <- housing_data[train_idx, ]     # Train set (70%)
+val_test_set <- housing_data[-train_idx, ] # Validation + Test (30%)
+
+val_idx <- sample(seq_len(nrow(val_test_set)), size = floor(0.5 * nrow(val_test_set))) # Index at 0.5 of Validation + Test set
+
+validation_set <- val_test_set[val_idx, ] # Validation set (15%)
+test_set <- val_test_set[-val_idx, ]      # Test set (15%)
+
+cat("Training Set Rows:  ", nrow(train_set), "(70%)\n")
+cat("Validation Set Rows:", nrow(validation_set), " (15%)\n")
+cat("Testing Set Rows:   ", nrow(test_set), " (15%)\n")
+
+# Create linear regression model using our current feature set on the train set
+model_lm <- lm(formula = price ~ borough + tot_sqft + yr_built + bldg_ctgy + tot_unit + land_sqft + D1A + Pct_AO0 + R_HiWageWk 
+               + D1B + D1C + D2A_JPHH + D2B_E8MIX + D2R_JOBPOP + D2A_EPHHM + D3A + D3B + D4A + D4B025 + D4D + D5AR + D5AE 
+               + NatWalkInd + D1C5_OFF + D1C5_ENT + TotEmp, 
+               data = train_set)
+
+summary(model_lm)
+```
+
+Evaluation (RMSE)
+
+```{r}
+# Predict using our model on the test set
+preds <- predict(model_lm, newdata = test_set)
+
+# Calculate RMSE
+mse <- mean((test_set$price - preds)^2)
+rmse <- sqrt(mse)
+cat("Model RMSE: $", format(round(rmse, 0), big.mark = ","), "\n")
+
+# --- VISUALIZATION: Predicted vs Actual ---
+plot_data <- data.frame(Actual = test_set$price, Predicted = preds)
+
+ggplot(plot_data, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.3, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Diagnostic: Actual vs. Predicted Prices",
+       subtitle = "Points near the red line are accurate predictions",
+       x = "Actual Price ($)", 
+       y = "Predicted Price ($)") +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme_minimal()
+```
+
+Cross-Validation (Manual 10-Fold)
+- We want to mainly look at this to evaluate the performance of our lm model, and iteratively improve our Feature selection
+
+```{r}
+set.seed(160)
+data_shuffled <- housing_data[sample(nrow(housing_data)), ]
+# Get all the folds to be used in our k-fold CV
+folds <- cut(seq(1, nrow(data_shuffled)), breaks = 10, labels = FALSE)
+
+cv_mse_scores <- c()
+
+cat("Current Feature Set:",
+    "price ~ borough + tot_sqft + yr_built + bldg_ctgy + tot_unit + land_sqft + D1A + Pct_AO0 + R_HiWageWk + D1B + D1C + D2A_JPHH + D2B_E8MIX + D2R_JOBPOP + D2A_EPHHM + D3A + D3B + D4A + D4B025 + D4D + D5AR + D5AE + NatWalkInd + D1C5_OFF + D1C5_ENT + TotEmp",
+    "\n")
+
+for(i in 1:10){
+  test_idx <- which(folds == i)
+  test_fold <- data_shuffled[test_idx, ]
+  train_fold <- data_shuffled[-test_idx, ]
+  
+  # Train 
+  m <- lm(price ~ borough + tot_sqft + yr_built + bldg_ctgy + tot_unit + land_sqft + D1A + Pct_AO0 + R_HiWageWk + D1B + D1C + D2A_JPHH +      D2B_E8MIX + D2R_JOBPOP + D2A_EPHHM + D3A + D3B + D4A + D4B025 + D4D + D5AR + D5AE + NatWalkInd + D1C5_OFF + D1C5_ENT + TotEmp, 
+          data = train_fold) # This is our best feature set so far
+  
+  # We remove rows from the test set that have categories the model never saw during training (e.g. category of the boulevard = 6)
+  
+  # Identify which columns are factors (categorical)
+  factor_cols <- names(Filter(is.factor, train_fold))
+  
+  # Loop through each factor and filter the test set
+  for(col in factor_cols) {
+    # Get the levels the model learned
+    train_levels <- levels(train_fold[[col]])
+    
+    # Filter test_fold to keep ONLY rows where the category exists in training
+    # *Note that we lose a bit of data, but at least now the model works
+    test_fold <- test_fold[test_fold[[col]] %in% train_levels, ]
+  }
+  
+  # Predict
+  p <- predict(m, test_fold)
+  
+  # Calculate Error in $ Dollars
+  mse_fold <- mean((test_fold$price - p)^2)
+  cv_mse_scores <- c(cv_mse_scores, mse_fold)
+}
+
+avg_mse <- mean(cv_mse_scores)
+avg_rmse <- sqrt(avg_mse)
+
+# Calculate mean price of the dataset to normalize the error (To get Error %)
+mean_price <- mean(housing_data$price, na.rm = TRUE)
+
+# Calculate Percentage Error (Cross Validation RMSE / Mean Price)
+cv_rmse_pct <- avg_rmse / mean_price
+
+# --- COMPARATIVE ANALYSIS: STRUCTURAL BASELINE ---
+# We now test a model using ONLY Real Estate features from real_estate (Size, Age, Type, Land)
+
+cat("\n--- Performance of the 3 models (CV-RMSE) ---\n")
+structural_formula <- price ~ tot_sqft + yr_built + land_sqft + bldg_ctgy
+
+# Run 10-Fold Cross-Validation on Real Estate Model
+cv_mse_struct <- c()
+for(i in 1:10){
+  test_idx <- which(folds == i)
+  test_fold <- data_shuffled[test_idx, ]
+  train_fold <- data_shuffled[-test_idx, ]
+  
+  # Train Housing Model
+  m_struct <- lm(structural_formula, data = train_fold)
+  
+  # Handle new levels like before
+  factor_cols <- names(Filter(is.factor, train_fold))
+  for(col in factor_cols) {
+    if(col %in% all.vars(structural_formula)) { # Only filter if variable is in formula
+      train_levels <- levels(train_fold[[col]])
+      test_fold <- test_fold[test_fold[[col]] %in% train_levels, ]
+    }
+  }
+  
+  # Predict
+  p <- predict(m_struct, test_fold)
+  
+  mse_fold <- mean((test_fold$price - p)^2)
+  cv_mse_struct <- c(cv_mse_struct, mse_fold)
+}
+
+avg_rmse_struct <- sqrt(mean(cv_mse_struct))
+
+# --- FINAL PERFORMANCE REPORT ---
+baseline_errors <- housing_data$price - mean(housing_data$price)
+baseline_rmse <- sqrt(mean(baseline_errors^2))
+     # Evaluation Metric                         # Round to Integer                #Seperate every 3 digit with ","
+cat("1. Naive Baseline (Guessing Average): $",   format(round(baseline_rmse, 0),   big.mark=","), "\n")
+cat("2. Real Estate Model (Real Estate Only): $", format(round(avg_rmse_struct, 0), big.mark=","), "\n")
+cat("3. Full Model (Real Estate + SLD):  $",     format(round(avg_rmse, 0),        big.mark=","), "\n")
+cat("------------------------------------------------\n")
+cat("Real Estate Data Lift: ", round((baseline_rmse - avg_rmse_struct)/baseline_rmse * 100, 1), "%\n")
+cat("SLD Data Lift: ", round((baseline_rmse - avg_rmse)/baseline_rmse * 100, 1), "%\n")
+```
