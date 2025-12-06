@@ -22,26 +22,26 @@ To aid with this, our goal is to create a model that can most accurately predict
 ## How to Run 
 ---
 
-###Required Data Sources
+### Required Data Sources
 
 Download the following datasets before running any scripts:
 
-### Housing + Real Estate
+## Housing + Real Estate
 NYC Real Estate Sales 2017
 https://archive.nyu.edu/handle/2451/44425
 
 NYC Real Estate Sales 2018
 https://archive.nyu.edu/handle/2451/44426
 
-### Crime Data
+## Crime Data
 NYPD Arrest Data (Year-to-Date)
 https://data.cityofnewyork.us/Public-Safety/NYPD-Arrest-Data-Year-to-Date-/uip8-fykc/about_data
 
-### Neighborhood / Census Features
+## Neighborhood / Census Features
 Smart Location Database (SLD)
 https://catalog.data.gov/dataset/smart-location-database8
 
-### Geographic Crosswalks
+## Geographic Crosswalks
 ZIP ↔ Census Tract Crosswalk (HUD USPS)
 https://www.huduser.gov/portal/datasets/usps_crosswalk.html
 
@@ -51,14 +51,17 @@ https://rowzero.com/datasets/fips-codes-lookup
 ### Data Cleaning
 <b>Note: All of the scripts in this project are in R Markdown (rmd) notebooks, similar to a Jupyter Notebook. We recommend you use an Integrated Development Environment (IDE) such as Rstudio to be able to run all of the steps in a concise and visual manner.</b>
 
+```
 cleaning/
-  Arrest_Data_Clean.Rmd
-  NYC_RealEstate_2017.Rmd
-  NYC_RealEstate_2018.Rmd
-  dog_license_cleaning.Rmd
-  sld_cleaning.Rmd
-  tract_geoid_to_zip_cleaning.Rmd
-  FIPS_data.zip
+  ├─ Arrest_Data_Clean.Rmd
+  ├─ NYC_RealEstate_2017.Rmd
+  ├─ NYC_RealEstate_2018.Rmd
+  ├─ dog_license_cleaning.Rmd
+  ├─ sld_cleaning.Rmd
+  ├─ tract_geoid_to_zip_cleaning.Rmd
+  └─ FIPS_data.zip
+```
+
 
 1. Open RStudio.
 2. Run the cleaning notebooks in this order:
