@@ -73,7 +73,7 @@ cleaning/
 3. Ensure all cleaned datasets save to the correct locations.
 4. Open the model/ directory and run:
   ```
-  cleaning/
+  model/
     ├─ Arrest_Data_Modeling.Rmd
     ├─ Arrest_Data_Visualization.Rmd
     ├─ Arrest_Data_Tasks.Rmd
