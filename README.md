@@ -64,12 +64,12 @@ cleaning/
 
 
 1. Open RStudio.
-2. Run the cleaning notebooks in this order:
-  sld_cleaning.Rmd
-  NYC_RealEstate_2017.Rmd
-  NYC_RealEstate_2018.Rmd
-  Arrest_Data_Clean.Rmd
-  tract_geoid_to_zip_cleaning.Rmd
+2. Run the cleaning notebooks in this order:  
+  sld_cleaning.Rmd  
+  NYC_RealEstate_2017.Rmd  
+  NYC_RealEstate_2018.Rmd  
+  Arrest_Data_Clean.Rmd  
+  tract_geoid_to_zip_cleaning.Rmd  
 3. Ensure all cleaned datasets save to the correct locations.
 4. Open the model/ directory and run:
   ```
@@ -91,7 +91,7 @@ cleaning/
 
 
 ### Modeling
-* Use regression-based modeling to estimate housing values accross the 5 different boroughs in NYC --> employs linear regression ot capture relationships between teh indeprendent variables and housing prices
+* Use regression-based modeling to estimate housing values accross the 5 different boroughs in NYC --> employs linear regression to capture relationships between the indeprendent variables and housing prices
 * Perform this process for both the SLD data and the crime data
 
 ### Model Evaluation
