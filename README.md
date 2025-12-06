@@ -92,7 +92,7 @@ cleaning/
 
 ### Modeling
 * Use regression-based modeling to estimate housing values accross the 5 different boroughs in NYC --> employs linear regression ot capture relationships between teh indeprendent variables and housing prices
-* Perform this process for botht eh SLD data and the crime data
+* Perform this process for both the SLD data and the crime data
 
 ### Model Evaluation
 * Use the Root Mean Squared Error (RMSE) as the primary loss function
