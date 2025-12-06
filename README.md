@@ -6,7 +6,7 @@
 * Semester: Fall 2025
 * Team Name: Jolly and Educated Data Science Lovers (JEDSL)
 
-### Group Members:
+## Group Members:
 * Luca Cevaer-Corey <lac525@lehigh.edu>
 * Dean Clark <dmc227@lehigh.edu>
 * Ester Frank <esf228@lehigh.edu>
@@ -22,33 +22,33 @@ To aid with this, our goal is to create a model that can most accurately predict
 ## How to Run 
 ---
 
-### Required Data Sources
+## Required Data Sources
 
 Download the following datasets before running any scripts:
 
-## Housing + Real Estate
+### Housing + Real Estate
 NYC Real Estate Sales 2017
 https://archive.nyu.edu/handle/2451/44425
 
 NYC Real Estate Sales 2018
 https://archive.nyu.edu/handle/2451/44426
 
-## Crime Data
+### Crime Data
 NYPD Arrest Data (Year-to-Date)
 https://data.cityofnewyork.us/Public-Safety/NYPD-Arrest-Data-Year-to-Date-/uip8-fykc/about_data
 
-## Neighborhood / Census Features
+### Neighborhood / Census Features
 Smart Location Database (SLD)
 https://catalog.data.gov/dataset/smart-location-database8
 
-## Geographic Crosswalks
+### Geographic Crosswalks
 ZIP ↔ Census Tract Crosswalk (HUD USPS)
 https://www.huduser.gov/portal/datasets/usps_crosswalk.html
 
 FIPS Code Lookup
 https://rowzero.com/datasets/fips-codes-lookup
 
-### Data Cleaning
+## Data Cleaning
 <b>Note: All of the scripts in this project are in R Markdown (rmd) notebooks, similar to a Jupyter Notebook. We recommend you use an Integrated Development Environment (IDE) such as Rstudio to be able to run all of the steps in a concise and visual manner.</b>
 
 ```
@@ -76,7 +76,7 @@ cleaning/
     Arrest_Data_Visualization.Rmd
     Arrest_Data_Tasks.Rmd
 
-### Output
+## Output
   Running the full workflow produces:
   Cleaned housing, crime, and census datasets
   A merged dataset for modeling
